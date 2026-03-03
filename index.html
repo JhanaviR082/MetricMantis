@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MetricMantis — Chaos Testing Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #080808;
+    --surface: rgba(255,255,255,0.04);
+    --surface2:rgba(255,255,255,0.07);
+    --border:  rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --border3: rgba(255,255,255,0.22);
+    --chalk:   #f5f0eb;
+    --bone:    #e8e0d5;
+    --silver:  #c4bdb6;
+    --pewter:  #8a8078;
+    --ash:     #5a5450;
+    --cinder:  #2e2c2a;
+    --ok:      #10b981;
+    --warn:    #f59e0b;
+    --danger:  #ef4444;
+    --mono:    'JetBrains Mono', monospace;
+    --serif:   'Syne', sans-serif;
+    --sans:    'Syne', sans-serif;
+  }
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:var(--bg);color:var(--chalk);font-family:var(--sans);overflow:hidden;height:100vh;width:100vw;}
+
+  /* BG GRID */
+  #bg-grid{position:fixed;inset:0;pointer-events:none;z-index:0;}
+  #bg-grid::before{content:'';position:absolute;inset:0;
+    background-image:linear-gradient(rgba(255,255,255,0.090) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.075) 1px,transparent 1px);
+    background-size:52px 52px;
+    mask-image:radial-gradient(ellipse 78% 68% at 50% 50%,black 25%,transparent 100%);
+    -webkit-mask-image:radial-gradient(ellipse 78% 68% at 50% 50%,black 25%,transparent 100%);}
+  #bg-grid::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 55% 55% at 50% 50%,transparent 35%,var(--bg) 100%);}
+
+  .noise{position:fixed;inset:0;pointer-events:none;z-index:1001;opacity:.022;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+  .scanlines{position:fixed;inset:0;pointer-events:none;z-index:1002;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.035) 3px,rgba(0,0,0,0.035) 4px);}
+
+  /* ── SPLASH ─────────────────────────────── */
+  #splash{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:var(--bg);transition:opacity .8s ease,transform .8s ease;}
+  #splash.exit{opacity:0;transform:scale(1.04);pointer-events:none;}
+  .splash-glass{position:relative;padding:69px 76px;border-radius:26px;background:rgba(255,255,255,0.028);border:1px solid rgba(255,255,255,0.09);backdrop-filter:blur(40px);text-align:center;overflow:hidden;max-width:540px;width:90%;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .splash-glass::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.38),transparent);}
+  .splash-glass::after{content:'';position:absolute;bottom:0;left:0;right:0;height:55%;background:radial-gradient(ellipse at 50% 100%,rgba(255,255,255,0.035),transparent);pointer-events:none;}
+  .s-grid{position:absolute;inset:0;pointer-events:none;border-radius:inherit;overflow:hidden;}
+  .s-grid::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.038) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.038) 1px,transparent 1px);background-size:38px 38px;mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 5%,transparent 100%);-webkit-mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 5%,transparent 100%);}
+  .s-orb{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none;}
+  .s-orb-1{width:280px;height:280px;background:rgba(255,255,255,0.025);top:-90px;right:-50px;}
+  .s-orb-2{width:180px;height:180px;background:rgba(210,200,185,0.05);bottom:-50px;left:-30px;}
+  .s-eyebrow{font-family:var(--mono);font-size:9px;letter-spacing:.25em;color:var(--pewter);text-transform:uppercase;margin-bottom:22px;opacity:0;animation:fadeUp .6s ease .3s forwards;}
+  .s-logo{font-family:var(--sans);font-weight:800;font-size:clamp(28px,6vw,44px);letter-spacing:-.04em;color:var(--chalk);margin-bottom:18px;opacity:0;animation:fadeUp .7s ease .5s forwards;line-height:1;position:relative;display:inline-block;}
+  .s-logo::after{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);width:85%;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.7),transparent);}
+  .s-logo em{font-style:normal;color:var(--white);}
+  .s-logo em::after{content:'';}
+
+  .s-div{display:none;}
+  .s-caption{font-family:var(--sans);font-size:14px;color:var(--silver);line-height:1.7;margin-bottom:36px;opacity:0;animation:fadeUp .7s ease .7s forwards;font-weight:400;}
+  .s-caption .hl{color:var(--chalk);font-style:italic;position:relative;display:inline-block;padding:0 6px;}
+  .s-caption .hl::before{content:'';position:absolute;inset:-1px -4px;border:1px solid rgba(255,255,255,0.16);border-radius:3px;background:rgba(255,255,255,0.04);}
+  .s-enter{font-family:var(--mono);font-size:10px;color:var(--ash);letter-spacing:.12em;opacity:0;animation:fadeUp .5s ease 1.1s forwards,splPulse 2s ease 2s infinite;cursor:pointer;padding:9px 22px;border:1px solid rgba(255,255,255,0.07);border-radius:100px;background:rgba(255,255,255,0.025);transition:all .2s;display:inline-block;}
+  .s-enter:hover{background:rgba(255,255,255,0.065);color:var(--silver);border-color:rgba(255,255,255,0.16);}
+  @keyframes splPulse{0%,100%{opacity:1}50%{opacity:.45}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(13px)}to{opacity:1;transform:translateY(0)}}
+
+  /* ── CHROME ─────────────────────────────── */
+  #logo{position:fixed;top:20px;left:26px;font-family:var(--sans);font-weight:800;font-size:13px;letter-spacing:-.03em;color:var(--chalk);z-index:500;}
+  #logo span{color:var(--silver);font-weight:500;}
+  #counter{position:fixed;top:20px;right:26px;font-family:var(--mono);font-size:10px;color:var(--ash);z-index:500;letter-spacing:.12em;}
+  #progress-bar{position:fixed;bottom:0;left:0;height:1px;background:linear-gradient(90deg,var(--cinder),var(--silver),var(--chalk));transition:width .6s cubic-bezier(.4,0,.2,1);z-index:500;box-shadow:0 0 8px rgba(255,255,255,.22);}
+  #dots{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:7px;z-index:500;}
+  .dot{width:5px;height:5px;border-radius:50%;background:var(--cinder);transition:all .3s;cursor:pointer;border:1px solid var(--ash);}
+  .dot.active{background:var(--silver);width:18px;border-radius:3px;border-color:var(--silver);box-shadow:0 0 5px rgba(196,189,182,.5);}
+  .nav-btn{position:fixed;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.03);border:1px solid var(--border);color:var(--ash);width:34px;height:34px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:500;transition:all .2s;font-size:13px;backdrop-filter:blur(8px);}
+  .nav-btn:hover{background:rgba(255,255,255,.07);color:var(--chalk);border-color:var(--border3);}
+  #prev{left:14px;}#next{right:14px;}
+
+  /* ── TRANSITION ─────────────────────────── */
+  .slide{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;}
+  .slide.active{opacity:1;pointer-events:all;}
+  #transition-overlay{position:fixed;inset:0;z-index:900;pointer-events:none;display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(4,1fr);}
+  .t-cell{background:var(--bg);transform:scaleY(0);transform-origin:top;transition:transform .26s cubic-bezier(.4,0,.6,1);}
+  .t-cell.drop{transform:scaleY(1);}
+  .t-cell.lift{transform-origin:bottom;transform:scaleY(0);transition:transform .26s cubic-bezier(.4,0,.6,1);}
+
+  /* ── SHARED ─────────────────────────────── */
+  .slide-label{font-family:var(--mono);font-size:10px;color:var(--ash);letter-spacing:.2em;text-transform:uppercase;margin-bottom:7px;}
+  .slide-title{font-size:clamp(26px,4vw,40px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-bottom:30px;}
+  .grad-text{color:var(--white);text-shadow:0 0 28px rgba(255,255,255,.38),0 1px 0 rgba(255,255,255,.7);}
+  .glass{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:15px;position:relative;overflow:hidden;}
+  .glass::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);pointer-events:none;}
+  .glass-deep{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:12px;position:relative;overflow:hidden;}
+  .glass-deep::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.12),transparent);pointer-events:none;}
+
+  /* ── SLIDE 1 ─────────────────────────────── */
+  #slide-1 .hero-content{text-align:center;max-width:720px;padding:40px 20px;position:relative;z-index:1;}
+  .hero-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:5px 13px;font-family:var(--mono);font-size:10px;color:var(--silver);margin-bottom:26px;letter-spacing:.1em;backdrop-filter:blur(10px);}
+  .hero-badge::before{content:'●';font-size:7px;color:var(--ok);animation:pdot 2s infinite;}
+  @keyframes pdot{0%,100%{opacity:1}50%{opacity:.2}}
+  .hero-title{font-size:clamp(32px,6.5vw,64px);font-weight:800;line-height:1.1;letter-spacing:-.04em;margin-bottom:20px;}
+  .hero-title .line1{display:block;color:var(--chalk);white-space:normal;}
+  .hero-title .line2{display:block;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.3);position:relative;white-space:nowrap;}
+  .hero-title .line2::after{content:attr(data-text);position:absolute;inset:0;background:linear-gradient(180deg,var(--white) 0%,var(--silver) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 22px rgba(255,255,255,.28));}
+  .hero-sub{font-family:var(--mono);font-size:12px;color:var(--pewter);line-height:1.8;max-width:420px;margin:0 auto 38px;}
+  .hero-actions{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;}
+  .btn-primary{background:var(--chalk);color:var(--bg);border:none;padding:12px 24px;border-radius:8px;font-family:var(--sans);font-weight:700;font-size:13px;cursor:pointer;letter-spacing:-.01em;transition:all .2s;box-shadow:0 0 0 1px rgba(255,255,255,.1),inset 0 1px 0 rgba(255,255,255,.28);}
+  .btn-primary:hover{background:#fff;transform:translateY(-1px);box-shadow:0 8px 26px rgba(255,255,255,.13),0 0 0 1px rgba(255,255,255,.15);}
+  .btn-ghost{background:rgba(255,255,255,.04);color:var(--pewter);border:1px solid var(--border);padding:12px 24px;border-radius:8px;font-family:var(--sans);font-weight:500;font-size:13px;cursor:pointer;transition:all .2s;backdrop-filter:blur(8px);}
+  .btn-ghost:hover{border-color:var(--border3);color:var(--chalk);background:rgba(255,255,255,.07);}
+  .h-orb{position:absolute;border-radius:50%;pointer-events:none;filter:blur(55px);}
+  .h-orb-1{width:480px;height:480px;background:rgba(255,255,255,.018);top:-190px;left:50%;transform:translateX(-50%);}
+  .h-orb-2{width:190px;height:190px;background:rgba(200,190,175,.055);bottom:40px;right:8%;}
+  .h-orb-3{width:130px;height:130px;background:rgba(255,255,255,.038);top:22%;left:4%;}
+
+  /* ── SLIDE 2 ─────────────────────────────── */
+  #slide-2 .slide-inner{width:100%;max-width:800px;padding:40px 20px;}
+  .upload-area{border:1.5px dashed rgba(255,255,255,.11);border-radius:17px;padding:42px;text-align:center;background:rgba(255,255,255,.014);margin-bottom:18px;transition:all .3s;}
+  .upload-area.uploading{border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.03);box-shadow:inset 0 0 38px rgba(255,255,255,.025);}
+  .upload-icon{width:50px;height:50px;background:rgba(255,255,255,.06);border-radius:13px;display:flex;align-items:center;justify-content:center;margin:0 auto 13px;font-size:21px;border:1px solid rgba(255,255,255,.1);box-shadow:0 4px 18px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.09);}
+  .upload-text-main{font-size:15px;font-weight:600;margin-bottom:4px;color:var(--bone);}
+  .upload-text-sub{font-family:var(--mono);font-size:10px;color:var(--ash);}
+  .file-list{display:flex;flex-direction:column;gap:7px;margin-top:14px;}
+  .file-item{display:flex;align-items:center;gap:11px;padding:11px 15px;font-family:var(--mono);font-size:11px;opacity:0;transform:translateX(-9px);transition:all .4s ease;}
+  .file-item.visible{opacity:1;transform:translateX(0);}
+  .file-name{flex:1;color:var(--bone);}
+  .file-size{color:var(--ash);font-size:10px;}
+  .file-status{width:17px;height:17px;border-radius:50%;background:rgba(16,185,129,.14);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ok);border:1px solid rgba(16,185,129,.3);}
+  .microservice-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;}
+  .tag{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:5px;padding:4px 10px;font-family:var(--mono);font-size:10px;color:var(--ash);display:flex;align-items:center;gap:5px;}
+  .tag-dot{width:5px;height:5px;border-radius:50%;}
+  .progress-line{height:1px;background:rgba(255,255,255,.04);border-radius:1px;margin-top:16px;overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--ash),var(--chalk));width:0%;transition:width 1.5s ease;box-shadow:0 0 6px rgba(255,255,255,.25);}
+  .env-parser{background:rgba(0,0,0,.42);border:1px solid var(--border);border-radius:10px;padding:13px 17px;font-family:var(--mono);font-size:10px;margin-top:12px;backdrop-filter:blur(10px);}
+  .env-line{display:flex;gap:7px;padding:2px 0;opacity:0;transition:opacity .2s;}
+  .env-line.show{opacity:1;}
+  .env-key{color:var(--silver);}
+  .env-eq{color:var(--ash);}
+  .env-val{color:var(--chalk);}
+  .env-comment{color:var(--cinder);}
+
+  /* ── SLIDE 3 ─────────────────────────────── */
+  .validation-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:13px;width:100%;max-width:900px;padding:40px 20px;}
+  .val-card{padding:20px;opacity:0;transform:translateY(16px);transition:all .5s ease;}
+  .val-card.visible{opacity:1;transform:translateY(0);}
+  .val-card-title{font-family:var(--mono);font-size:9px;color:var(--ash);letter-spacing:.1em;text-transform:uppercase;margin-bottom:13px;}
+  .check-item{display:flex;align-items:center;gap:8px;padding:6px 0;font-family:var(--mono);font-size:11px;border-bottom:1px solid rgba(255,255,255,.04);opacity:0;transition:opacity .3s;}
+  .check-item:last-child{border-bottom:none;}
+  .check-item.show{opacity:1;}
+  .check-icon{font-size:11px;min-width:15px;}
+  .check-label{flex:1;color:var(--bone);}
+  .check-pass{color:var(--ok);}
+  .check-warn{color:var(--warn);}
+  .check-fail{color:var(--danger);}
+  .val-summary{grid-column:1/-1;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.18);border-radius:11px;padding:16px 20px;display:flex;align-items:center;gap:13px;opacity:0;transition:opacity .5s ease 1.5s;}
+  .val-summary.show{opacity:1;}
+  .val-summary-text h3{font-size:13px;font-weight:600;color:var(--ok);}
+  .val-summary-text p{font-family:var(--mono);font-size:10px;color:var(--ash);margin-top:2px;}
+
+  /* ── SLIDE 4 ─────────────────────────────── */
+  .sandbox-layout{display:grid;grid-template-columns:1fr 1.4fr;gap:20px;max-width:900px;width:100%;padding:40px 20px;align-items:start;}
+  .sandbox-left h2{font-size:clamp(26px,4vw,36px);font-weight:700;letter-spacing:-.03em;margin-bottom:6px;}
+  .sandbox-steps{display:flex;flex-direction:column;gap:0;margin-top:22px;}
+  .sandbox-step{display:flex;gap:13px;padding:13px 0;opacity:0;transform:translateX(-7px);transition:all .4s ease;}
+  .sandbox-step.show{opacity:1;transform:translateX(0);}
+  .step-line{display:flex;flex-direction:column;align-items:center;}
+  .step-num{width:25px;height:25px;border-radius:50%;background:rgba(255,255,255,.04);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;color:var(--ash);flex-shrink:0;transition:all .3s;}
+  .step-num.active{background:rgba(255,255,255,.1);border-color:var(--silver);color:var(--chalk);box-shadow:0 0 10px rgba(255,255,255,.09);}
+  .step-connector{width:1px;flex:1;background:var(--border);min-height:20px;}
+  .step-content{padding-top:3px;}
+  .step-name{font-size:12px;font-weight:600;margin-bottom:2px;color:var(--bone);}
+  .step-desc{font-family:var(--mono);font-size:10px;color:var(--ash);}
+  .terminal{background:rgba(0,0,0,.48);border:1px solid var(--border);border-radius:13px;overflow:hidden;backdrop-filter:blur(20px);}
+  .terminal-header{padding:9px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.02);}
+  .term-dot{width:9px;height:9px;border-radius:50%;}
+  .term-dot.red{background:#ef4444;}
+  .term-dot.yellow{background:#f59e0b;}
+  .term-dot.green{background:#10b981;}
+  .terminal-title{font-family:var(--mono);font-size:10px;color:var(--ash);margin-left:6px;}
+  .terminal-body{padding:16px;font-family:var(--mono);font-size:11px;line-height:1.85;min-height:250px;}
+  .term-line{display:block;opacity:0;transition:opacity .2s;white-space:pre;}
+  .term-line.show{opacity:1;}
+  .term-prompt{color:var(--silver);}
+  .term-cmd{color:var(--chalk);}
+  .term-out{color:var(--ash);}
+  .term-success{color:var(--ok);}
+  .term-warn{color:var(--warn);}
+  .term-cursor{display:inline-block;width:7px;height:12px;background:var(--silver);animation:blink 1s infinite;vertical-align:middle;}
+  @keyframes blink{0%,50%{opacity:1}51%,100%{opacity:0}}
+
+  /* ── SLIDE 5 ─────────────────────────────── */
+  .graph-container{width:100%;max-width:900px;padding:40px 20px;display:flex;flex-direction:column;align-items:center;}
+  .graph-canvas{width:100%;max-width:660px;position:relative;height:300px;margin:26px 0;}
+  .graph-node{position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px;opacity:0;transition:all .5s ease;}
+  .graph-node.show{opacity:1;}
+  .node-box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:13px 20px;text-align:center;font-size:11px;font-weight:600;cursor:pointer;position:relative;backdrop-filter:blur(20px);transition:all .3s;box-shadow:0 4px 22px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.07);}
+  .node-box:hover{transform:scale(1.06);box-shadow:0 8px 36px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.13);}
+  .node-box.critical{border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.06);box-shadow:0 0 22px rgba(239,68,68,.12),inset 0 1px 0 rgba(255,255,255,.05);}
+  .node-box.critical::after{content:'SPOF';position:absolute;top:-7px;right:-7px;background:var(--danger);color:#fff;font-size:8px;font-family:var(--mono);padding:2px 5px;border-radius:3px;font-weight:700;}
+  .node-icon{font-size:17px;}
+  .node-label{font-family:var(--mono);font-size:9px;color:var(--ash);}
+  svg.graph-lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible;}
+  .graph-line{stroke:rgba(255,255,255,.14);stroke-width:1;fill:none;stroke-dasharray:5 4;animation:dash 3s linear infinite;}
+  .graph-line.critical-line{stroke:rgba(239,68,68,.38);stroke-dasharray:none;stroke-width:1.5;}
+  @keyframes dash{to{stroke-dashoffset:-18}}
+  .graph-legend{display:flex;gap:18px;margin-top:5px;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--ash);}
+  .legend-dot{width:8px;height:8px;border-radius:50%;}
+  #graph-alert{font-family:var(--mono);font-size:10px;color:var(--danger);margin-top:12px;padding:11px 15px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.18);border-radius:7px;opacity:0;transition:opacity .5s ease 1.5s;}
+
+  /* ── SLIDE 6 ─────────────────────────────── */
+  .chaos-layout{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;max-width:900px;width:100%;padding:40px 20px;align-items:start;}
+  .chaos-controls{overflow:hidden;}
+  .chaos-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  .chaos-header h3{font-size:12px;font-weight:600;color:var(--bone);}
+  .live-badge{background:rgba(239,68,68,.11);border:1px solid rgba(239,68,68,.28);color:var(--danger);font-family:var(--mono);font-size:9px;padding:3px 7px;border-radius:3px;display:flex;align-items:center;gap:4px;}
+  .live-badge::before{content:'●';animation:pdot 1s infinite;}
+  .chaos-actions{padding:12px;display:flex;flex-direction:column;gap:7px;}
+  .chaos-btn{display:flex;align-items:center;gap:10px;padding:11px 13px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px;cursor:pointer;font-family:var(--mono);font-size:10px;color:var(--bone);opacity:0;transform:translateX(-6px);transition:opacity .4s,transform .4s,background .2s,border .2s;}
+  .chaos-btn.show{opacity:1;transform:translateX(0);}
+  .chaos-btn:hover{background:rgba(239,68,68,.055);border-color:rgba(239,68,68,.25);}
+  .chaos-btn.fired{background:rgba(239,68,68,.09);border-color:rgba(239,68,68,.35);}
+  .chaos-btn-icon{font-size:13px;}
+  .chaos-btn-label{flex:1;}
+  .chaos-btn-meta{font-size:9px;color:var(--ash);}
+  .chaos-btn-action{background:rgba(239,68,68,.16);border:none;color:var(--danger);font-family:var(--mono);font-size:9px;padding:3px 7px;border-radius:4px;cursor:pointer;transition:all .2s;font-weight:600;}
+  .chaos-btn-action:hover{background:rgba(239,68,68,.28);}
+  .metrics-panel{display:flex;flex-direction:column;gap:10px;}
+  .metric-card{padding:16px;opacity:0;transition:all .4s ease;}
+  .metric-card.show{opacity:1;}
+  .metric-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+  .metric-name{font-family:var(--mono);font-size:9px;color:var(--ash);text-transform:uppercase;letter-spacing:.07em;}
+  .metric-status{font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;}
+  .metric-status.ok{background:rgba(16,185,129,.12);color:var(--ok);border:1px solid rgba(16,185,129,.22);}
+  .metric-status.warn{background:rgba(245,158,11,.1);color:var(--warn);border:1px solid rgba(245,158,11,.22);}
+  .metric-status.down{background:rgba(239,68,68,.1);color:var(--danger);border:1px solid rgba(239,68,68,.22);}
+  .metric-value{font-size:24px;font-weight:700;letter-spacing:-.03em;color:var(--chalk);}
+  .metric-bar-track{height:3px;background:rgba(255,255,255,.04);border-radius:1px;margin-top:9px;overflow:hidden;}
+  .metric-bar-fill{height:100%;border-radius:1px;transition:width 1s ease;width:0%;}
+
+  /* ── SLIDE 7 ─────────────────────────────── */
+  .report-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:900px;width:100%;padding:40px 20px;}
+  .report-header-area{grid-column:1/-1;display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px;}
+  .report-header-area h2{font-size:clamp(26px,4vw,36px);font-weight:700;letter-spacing:-.03em;}
+  .report-card{padding:18px;opacity:0;transform:translateY(13px);transition:all .5s ease;}
+  .report-card.show{opacity:1;transform:translateY(0);}
+  .report-card-title{font-family:var(--mono);font-size:9px;color:var(--ash);text-transform:uppercase;letter-spacing:.12em;margin-bottom:12px;display:flex;align-items:center;gap:5px;}
+  .report-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-family:var(--mono);font-size:10px;opacity:0;transition:opacity .3s;}
+  .report-item:last-child{border-bottom:none;}
+  .report-item.show{opacity:1;}
+  .ri-icon{font-size:12px;min-width:15px;}
+  .ri-text{flex:1;line-height:1.5;}
+  .ri-text strong{color:var(--bone);display:block;font-size:11px;}
+  .ri-text span{color:var(--ash);font-size:10px;}
+  .score-card{padding:18px;display:flex;flex-direction:column;align-items:center;opacity:0;transition:all .5s ease .4s;}
+  .score-card.show{opacity:1;}
+  .score-ring-wrapper{position:relative;width:105px;height:105px;margin:12px 0;}
+  .score-ring-wrapper svg{transform:rotate(-90deg);}
+  .score-ring-bg{fill:none;stroke:rgba(255,255,255,.06);stroke-width:6;}
+  .score-ring-fill{fill:none;stroke:var(--chalk);stroke-width:6;stroke-linecap:round;stroke-dasharray:283;stroke-dashoffset:283;transition:stroke-dashoffset 1.5s ease .5s;filter:drop-shadow(0 0 7px rgba(255,255,255,.28));}
+  .score-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .score-num{font-size:28px;font-weight:700;letter-spacing:-.03em;color:var(--chalk);}
+  .score-denom{font-family:var(--mono);font-size:10px;color:var(--ash);}
+  .score-label{font-family:var(--mono);font-size:10px;color:var(--ash);text-align:center;}
+  .advice-list{width:100%;margin-top:9px;}
+  .advice-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-family:var(--mono);font-size:10px;color:var(--ash);}
+  .advice-item:last-child{border-bottom:none;}
+  .advice-dot{width:5px;height:5px;border-radius:50%;background:var(--silver);margin-top:4px;flex-shrink:0;}
+
+  /* ── SLIDE 8 ─────────────────────────────── */
+  .dashboard-layout{width:100%;max-width:900px;padding:40px 20px;}
+  .dash-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0 16px;}
+  .dash-stat{padding:15px;opacity:0;transition:all .4s ease;}
+  .dash-stat.show{opacity:1;}
+  .ds-label{font-family:var(--mono);font-size:9px;color:var(--ash);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+  .ds-value{font-size:24px;font-weight:700;letter-spacing:-.03em;color:var(--chalk);}
+  .ds-change{font-family:var(--mono);font-size:9px;margin-top:3px;}
+  .ds-change.up{color:var(--ok);}
+  .ds-change.down{color:var(--danger);}
+  .dash-actions{display:flex;gap:7px;flex-wrap:wrap;}
+  .dash-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:9px 14px;font-family:var(--mono);font-size:10px;color:var(--pewter);cursor:pointer;transition:all .2s;}
+  .dash-btn:hover{background:rgba(255,255,255,.065);border-color:var(--border3);color:var(--chalk);transform:translateY(-1px);}
+  .dash-btn.primary-btn{background:rgba(255,255,255,.065);border-color:rgba(255,255,255,.16);color:var(--chalk);}
+  .mini-chart{padding:13px;margin:12px 0;height:88px;position:relative;overflow:hidden;}
+  .mini-chart-label{font-family:var(--mono);font-size:9px;color:var(--ash);margin-bottom:6px;}
+  .chart-svg{width:100%;height:55px;}
+
+  /* ── SLIDE 9 ─────────────────────────────── */
+  #slide-9 .slide-inner{text-align:center;max-width:600px;padding:40px 20px;}
+  .cleanup-icon{width:68px;height:68px;background:rgba(16,185,129,.08);border-radius:17px;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 22px;border:1px solid rgba(16,185,129,.2);box-shadow:0 0 30px rgba(16,185,129,.1);animation:float 3s ease-in-out infinite;}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  .cleanup-steps{display:flex;flex-direction:column;gap:0;text-align:left;margin:26px 0;}
+  .cleanup-step{display:flex;align-items:center;gap:13px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.04);font-family:var(--mono);font-size:11px;opacity:0;transition:opacity .4s ease;}
+  .cleanup-step:last-child{border-bottom:none;}
+  .cleanup-step.show{opacity:1;}
+  .cleanup-step-text{flex:1;color:var(--bone);}
+  .cleanup-step-status{font-size:9px;padding:3px 7px;border-radius:3px;}
+  .cleanup-step-status.done{background:rgba(16,185,129,.12);color:var(--ok);border:1px solid rgba(16,185,129,.22);}
+  .final-cta{display:flex;gap:9px;justify-content:center;margin-top:26px;opacity:0;transition:opacity .5s ease 2s;}
+  .final-cta.show{opacity:1;}
+
+  /* ── RESPONSIVE ─────────────────────────── */
+  @media(max-width:768px){
+    .validation-grid,.sandbox-layout,.chaos-layout,.report-layout{grid-template-columns:1fr;}
+    .dash-grid{grid-template-columns:1fr 1fr;}
+    .nav-btn{display:none;}
+  }
+  @media(max-width:480px){
+    .dash-grid{grid-template-columns:1fr;}
+    .hero-actions{flex-direction:column;align-items:center;}
+    .splash-glass{padding:38px 24px;}
+    .s-logo{font-size:32px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="bg-grid"></div>
+<div class="noise"></div>
+<div class="scanlines"></div>
+
+<!-- ═══════════ SPLASH ═══════════ -->
+<div id="splash">
+  <div class="splash-glass">
+    <div class="s-grid"></div>
+    <div class="s-orb s-orb-1"></div>
+    <div class="s-orb s-orb-2"></div>
+    <div class="s-eyebrow">Chaos Engineering Platform</div>
+    <div class="s-logo">Metric<em>Mantis</em></div>
+    <div class="s-div"></div>
+    <p class="s-caption">
+      Systems don't fail in production by accident.<br>
+      We break them on purpose — so you can build<br>
+      <span class="hl">&nbsp;resilience&nbsp;</span> before it costs you.
+    </p>
+    <div class="s-enter" id="splash-enter">ENTER PLATFORM ↗</div>
+  </div>
+</div>
+
+<!-- ═══════════ CHROME ═══════════ -->
+<div id="logo">Metric<span>Mantis</span></div>
+<div id="counter">01 / 09</div>
+<div id="progress-bar" style="width:11.1%"></div>
+<div id="dots"></div>
+<button class="nav-btn" id="prev">&#8592;</button>
+<button class="nav-btn" id="next">&#8594;</button>
+<div id="transition-overlay"></div>
+
+<!-- ═══════════ S1: HERO ═══════════ -->
+<div class="slide active" id="slide-1">
+  <div class="h-orb h-orb-1"></div>
+  <div class="h-orb h-orb-2"></div>
+  <div class="h-orb h-orb-3"></div>
+  <div class="hero-content">
+    <div class="hero-badge">CHAOS ENGINEERING PLATFORM</div>
+    <h1 class="hero-title">
+      <span class="line1">Break Things.</span>
+      <span class="line2" data-text="Build Resilience.">Build Resilience.</span>
+    </h1>
+    <p class="hero-sub">Upload your microservice stack. Watch it fail. Fix it before production does it for you.</p>
+    <div class="hero-actions">
+      <button class="btn-primary">Upload Your App</button>
+      <button class="btn-ghost">View Past Reports</button>
+      <button class="btn-ghost">Documentation</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ S2: UPLOAD ═══════════ -->
+<div class="slide" id="slide-2">
+  <div class="slide-inner">
+    <div class="slide-label">Step 01 — Ingest</div>
+    <h2 class="slide-title">Upload Your<br><span class="grad-text">Microservice App</span></h2>
+    <div class="upload-area" id="upload-area">
+      <div class="upload-icon">📦</div>
+      <div class="upload-text-main">Drop your docker-compose.yml</div>
+      <div class="upload-text-sub">or drag & drop your project ZIP</div>
+    </div>
+    <div class="microservice-tags">
+      <div class="tag"><div class="tag-dot" style="background:var(--warn)"></div>Analytics Backend · Java Spring Boot</div>
+      <div class="tag"><div class="tag-dot" style="background:var(--silver)"></div>Frontend · HTML/CSS/JS</div>
+      <div class="tag"><div class="tag-dot" style="background:var(--pewter)"></div>Database · MySQL 8.0</div>
+    </div>
+    <div class="file-list">
+      <div class="file-item glass-deep" id="f1"><span>📄</span><span class="file-name">docker-compose.yml</span><span class="file-size">4.2 KB</span><span class="file-status">✓</span></div>
+      <div class="file-item glass-deep" id="f2"><span>🗜</span><span class="file-name">metricmantis-app.zip</span><span class="file-size">18.7 MB</span><span class="file-status">✓</span></div>
+    </div>
+    <div class="env-parser">
+      <div class="env-line" id="el1"><span class="env-comment"># Parsing docker-compose.yml...</span></div>
+      <div class="env-line" id="el2"><span class="env-key">services</span><span class="env-eq">:</span><span class="env-val"> analytics, frontend, db</span></div>
+      <div class="env-line" id="el3"><span class="env-key">networks</span><span class="env-eq">:</span><span class="env-val"> app-network (bridge)</span></div>
+      <div class="env-line" id="el4"><span class="env-key">volumes</span><span class="env-eq">:</span><span class="env-val"> mysql-data, app-logs</span></div>
+      <div class="env-line" id="el5"><span class="env-comment"># ✓ Structure validated — 3 services detected</span></div>
+    </div>
+    <div class="progress-line"><div class="progress-fill" id="upload-progress"></div></div>
+  </div>
+</div>
+
+<!-- ═══════════ S3: VALIDATION ═══════════ -->
+<div class="slide" id="slide-3">
+  <div class="validation-grid">
+    <div style="grid-column:1/-1;margin-bottom:4px">
+      <div class="slide-label">Step 02 — Validate</div>
+      <h2 class="slide-title">Static Analysis <span class="grad-text">Checks</span></h2>
+    </div>
+    <div class="val-card glass" id="vc1">
+      <div class="val-card-title">🔒 Security Checks</div>
+      <div class="check-item" id="ci1"><span class="check-icon check-pass">✓</span><span class="check-label">No privileged containers</span></div>
+      <div class="check-item" id="ci2"><span class="check-icon check-pass">✓</span><span class="check-label">No root user exposure</span></div>
+      <div class="check-item" id="ci3"><span class="check-icon check-pass">✓</span><span class="check-label">No host network bind</span></div>
+      <div class="check-item" id="ci4"><span class="check-icon check-pass">✓</span><span class="check-label">Secrets not in ENV</span></div>
+    </div>
+    <div class="val-card glass" id="vc2">
+      <div class="val-card-title">⚙️ Resource Checks</div>
+      <div class="check-item" id="ci5"><span class="check-icon check-pass">✓</span><span class="check-label">CPU limits set</span></div>
+      <div class="check-item" id="ci6"><span class="check-icon check-warn">⚠</span><span class="check-label">Memory limits missing on analytics</span></div>
+      <div class="check-item" id="ci7"><span class="check-icon check-pass">✓</span><span class="check-label">Port mappings valid</span></div>
+      <div class="check-item" id="ci8"><span class="check-icon check-pass">✓</span><span class="check-label">Healthchecks defined</span></div>
+    </div>
+    <div class="val-card glass" id="vc3">
+      <div class="val-card-title">🏗 Structure Checks</div>
+      <div class="check-item" id="ci9"><span class="check-icon check-pass">✓</span><span class="check-label">All services defined</span></div>
+      <div class="check-item" id="ci10"><span class="check-icon check-pass">✓</span><span class="check-label">Dependencies logical</span></div>
+      <div class="check-item" id="ci11"><span class="check-icon check-pass">✓</span><span class="check-label">Volumes referenced</span></div>
+      <div class="check-item" id="ci12"><span class="check-icon check-pass">✓</span><span class="check-label">Networks consistent</span></div>
+    </div>
+    <div class="val-summary" id="val-summary">
+      <div style="font-size:22px">✅</div>
+      <div class="val-summary-text"><h3>Validation Passed — 1 Warning</h3><p>Proceeding to sandbox. Analytics service memory limit advisory flagged.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ S4: SANDBOX ═══════════ -->
+<div class="slide" id="slide-4">
+  <div class="sandbox-layout">
+    <div class="sandbox-left">
+      <div class="slide-label">Step 03 — Sandbox</div>
+      <h2>Isolated<br><span class="grad-text">Environment</span></h2>
+      <div class="sandbox-steps">
+        <div class="sandbox-step" id="ss1"><div class="step-line"><div class="step-num" id="sn1">1</div><div class="step-connector"></div></div><div class="step-content"><div class="step-name">Create Network</div><div class="step-desc">Isolated Docker bridge: app-sandbox-7f3a</div></div></div>
+        <div class="sandbox-step" id="ss2"><div class="step-line"><div class="step-num" id="sn2">2</div><div class="step-connector"></div></div><div class="step-content"><div class="step-name">Apply Limits</div><div class="step-desc">CPU 0.5 cores · Memory 512MB per service</div></div></div>
+        <div class="sandbox-step" id="ss3"><div class="step-line"><div class="step-num" id="sn3">3</div><div class="step-connector"></div></div><div class="step-content"><div class="step-name">Build Images</div><div class="step-desc">Extracting ZIP · Building 3 Docker images</div></div></div>
+        <div class="sandbox-step" id="ss4"><div class="step-line"><div class="step-num" id="sn4">4</div></div><div class="step-content"><div class="step-name">docker-compose up</div><div class="step-desc">All services healthy · Logs capturing</div></div></div>
+      </div>
+    </div>
+    <div class="terminal">
+      <div class="terminal-header"><div class="term-dot red"></div><div class="term-dot yellow"></div><div class="term-dot green"></div><span class="terminal-title">sandbox-runner — bash</span></div>
+      <div class="terminal-body">
+        <span class="term-line" id="tl1"><span class="term-prompt">$ </span><span class="term-cmd">docker network create --driver bridge app-sandbox-7f3a</span></span>
+        <span class="term-line" id="tl2"><span class="term-out">a3f7e9d2c1b4... created</span></span>
+        <span class="term-line" id="tl3"><span class="term-prompt">$ </span><span class="term-cmd">docker-compose -f docker-compose.yml up -d --build</span></span>
+        <span class="term-line" id="tl4"><span class="term-out">Building analytics... Step 1/8 : FROM openjdk:17-slim</span></span>
+        <span class="term-line" id="tl5"><span class="term-out">Building frontend...  Step 1/4 : FROM nginx:alpine</span></span>
+        <span class="term-line" id="tl6"><span class="term-out">Building db...        Pulling mysql:8.0</span></span>
+        <span class="term-line" id="tl7"><span class="term-success">✓ analytics  Started  (port 8080)</span></span>
+        <span class="term-line" id="tl8"><span class="term-success">✓ frontend   Started  (port 3000)</span></span>
+        <span class="term-line" id="tl9"><span class="term-success">✓ db         Started  (port 3306)</span></span>
+        <span class="term-line" id="tl10"><span class="term-warn">⚠ analytics  Memory limit not set — advisory</span></span>
+        <span class="term-line" id="tl11"><span class="term-success">✓ All 3 services healthy. Sandbox ready.</span></span>
+        <span class="term-line" id="tl12"><span class="term-prompt">$ </span><span class="term-cursor"></span></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ S5: GRAPH ═══════════ -->
+<div class="slide" id="slide-5">
+  <div class="graph-container">
+    <div style="width:100%;max-width:660px">
+      <div class="slide-label">Step 04 — Map</div>
+      <h2 class="slide-title">Architecture <span class="grad-text">Dependency Graph</span></h2>
+    </div>
+    <div class="graph-canvas" id="graph-canvas">
+      <svg class="graph-lines" id="graph-svg">
+        <defs>
+          <marker id="arr" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="rgba(255,255,255,.18)"/></marker>
+          <marker id="arr-r" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="rgba(239,68,68,.42)"/></marker>
+        </defs>
+        <line id="gl1" class="graph-line" x1="0" y1="0" x2="0" y2="0" marker-end="url(#arr)" opacity="0"/>
+        <line id="gl2" class="graph-line critical-line" x1="0" y1="0" x2="0" y2="0" marker-end="url(#arr-r)" opacity="0"/>
+      </svg>
+      <div class="graph-node" id="gn-frontend" style="left:7%;top:42%;transform:translateY(-50%)">
+        <div class="node-box"><div class="node-icon">🌐</div><div>Frontend</div><div class="node-label">nginx · :3000</div></div>
+      </div>
+      <div class="graph-node" id="gn-analytics" style="left:36%;top:42%;transform:translateY(-50%)">
+        <div class="node-box warning"><div class="node-icon">⚙️</div><div>Analytics</div><div class="node-label">Spring Boot · :8080</div></div>
+      </div>
+      <div class="graph-node" id="gn-db" style="left:65%;top:42%;transform:translateY(-50%)">
+        <div class="node-box critical"><div class="node-icon">🗄️</div><div>Database</div><div class="node-label">MySQL 8.0 · :3306</div></div>
+      </div>
+    </div>
+    <div class="graph-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ok)"></div>Healthy</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--warn)"></div>Warning</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div>SPOF</div>
+    </div>
+    <div id="graph-alert">⚠ Database is a critical single point of failure — cascade risk detected</div>
+  </div>
+</div>
+
+<!-- ═══════════ S6: CHAOS ═══════════ -->
+<div class="slide" id="slide-6">
+  <div class="chaos-layout">
+    <div>
+      <div class="slide-label">Step 05 — Chaos</div>
+      <h2 class="slide-title" style="margin-bottom:16px">Inject <span class="grad-text">Failures</span></h2>
+      <div class="chaos-controls glass">
+        <div class="chaos-header"><h3>Manual Chaos Controls</h3><div class="live-badge">LIVE</div></div>
+        <div class="chaos-actions">
+          <div class="chaos-btn" id="cb1"><span class="chaos-btn-icon">💀</span><div><div class="chaos-btn-label">Kill Database Container</div><div class="chaos-btn-meta">Observe backend recovery time</div></div><button class="chaos-btn-action" onclick="fireChaos('cb1')">FIRE</button></div>
+          <div class="chaos-btn" id="cb2"><span class="chaos-btn-icon">⏱</span><div><div class="chaos-btn-label">Add 5s Latency: Analytics→DB</div><div class="chaos-btn-meta">Network delay injection</div></div><button class="chaos-btn-action" onclick="fireChaos('cb2')">FIRE</button></div>
+          <div class="chaos-btn" id="cb3"><span class="chaos-btn-icon">🔪</span><div><div class="chaos-btn-label">Kill Analytics Service</div><div class="chaos-btn-meta">Observe frontend degradation</div></div><button class="chaos-btn-action" onclick="fireChaos('cb3')">FIRE</button></div>
+          <div class="chaos-btn" id="cb4"><span class="chaos-btn-icon">🧠</span><div><div class="chaos-btn-label">Throttle CPU: Analytics 10%</div><div class="chaos-btn-meta">Performance under contention</div></div><button class="chaos-btn-action" onclick="fireChaos('cb4')">FIRE</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="metrics-panel">
+      <div class="metric-card glass" id="mc1"><div class="metric-card-top"><div class="metric-name">DB Recovery Time</div><div class="metric-status down">RECOVERING</div></div><div class="metric-value">18.2s</div><div class="metric-bar-track"><div class="metric-bar-fill" style="background:var(--danger);width:72%"></div></div></div>
+      <div class="metric-card glass" id="mc2"><div class="metric-card-top"><div class="metric-name">Analytics Recovery</div><div class="metric-status warn">PARTIAL</div></div><div class="metric-value">12.4s</div><div class="metric-bar-track"><div class="metric-bar-fill" style="background:var(--warn);width:55%"></div></div></div>
+      <div class="metric-card glass" id="mc3"><div class="metric-card-top"><div class="metric-name">Cascading Errors</div><div class="metric-status down">ACTIVE</div></div><div class="metric-value">47</div><div class="metric-bar-track"><div class="metric-bar-fill" style="background:var(--danger);width:88%"></div></div></div>
+      <div class="metric-card glass" id="mc4"><div class="metric-card-top"><div class="metric-name">Service Uptime</div><div class="metric-status ok">OK</div></div><div class="metric-value">91.3%</div><div class="metric-bar-track"><div class="metric-bar-fill" style="background:var(--ok);width:91%"></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ S7: REPORTS ═══════════ -->
+<div class="slide" id="slide-7">
+  <div class="report-layout">
+    <div class="report-header-area">
+      <div><div class="slide-label">Step 06 — Report</div><h2>Resilience <span class="grad-text">Analysis</span></h2></div>
+    </div>
+    <div class="report-card glass" id="rc1">
+      <div class="report-card-title">🔒 Security Report</div>
+      <div class="report-item" id="ri1"><span class="ri-icon">✅</span><div class="ri-text"><strong>No privileged containers</strong><span>All containers run with restricted capabilities</span></div></div>
+      <div class="report-item" id="ri2"><span class="ri-icon">✅</span><div class="ri-text"><strong>No root user exposure</strong><span>Services running as non-root users</span></div></div>
+      <div class="report-item" id="ri3"><span class="ri-icon">⚠️</span><div class="ri-text"><strong>Memory limits missing — analytics</strong><span>Risk of OOM kill under load spikes</span></div></div>
+    </div>
+    <div class="report-card glass" id="rc2">
+      <div class="report-card-title">🏗 Architecture Report</div>
+      <div class="report-item" id="ri4"><span class="ri-icon">🔴</span><div class="ri-text"><strong>Database is single point of failure</strong><span>No replication or failover configured</span></div></div>
+      <div class="report-item" id="ri5"><span class="ri-icon">🟡</span><div class="ri-text"><strong>Frontend fully depends on backend</strong><span>No graceful degradation on analytics down</span></div></div>
+      <div class="report-item" id="ri6"><span class="ri-icon">✅</span><div class="ri-text"><strong>Healthchecks defined</strong><span>All services have liveness probes</span></div></div>
+    </div>
+    <div class="report-card glass" id="rc3">
+      <div class="report-card-title">⚡ Resilience Metrics</div>
+      <div class="report-item" id="ri7"><span class="ri-icon">💥</span><div class="ri-text"><strong>DB crash → backend down → 18s recovery</strong><span>Cascading failure confirmed</span></div></div>
+      <div class="report-item" id="ri8"><span class="ri-icon">⚡</span><div class="ri-text"><strong>Analytics crash → frontend partial → 12s</strong><span>Partial degradation — acceptable</span></div></div>
+      <div class="report-item" id="ri9"><span class="ri-icon">📊</span><div class="ri-text"><strong>47 cascading errors logged</strong><span>During 3-minute chaos window</span></div></div>
+    </div>
+    <div class="score-card glass" id="score-card">
+      <div class="report-card-title" style="margin-bottom:0">Resilience Score</div>
+      <div class="score-ring-wrapper">
+        <svg viewBox="0 0 100 100" width="105" height="105">
+          <circle class="score-ring-bg" cx="50" cy="50" r="45"/>
+          <circle class="score-ring-fill" id="score-ring-fill" cx="50" cy="50" r="45"/>
+        </svg>
+        <div class="score-center"><div class="score-num" id="score-num">0</div><div class="score-denom">/10</div></div>
+      </div>
+      <div class="score-label">Overall Resilience Score</div>
+      <div class="advice-list">
+        <div class="advice-item"><div class="advice-dot"></div>Add database replication (MySQL → replica)</div>
+        <div class="advice-item"><div class="advice-dot"></div>Introduce retry logic in analytics service</div>
+        <div class="advice-item"><div class="advice-dot"></div>Set memory limits on analytics container</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ S8: DASHBOARD ═══════════ -->
+<div class="slide" id="slide-8">
+  <div class="dashboard-layout">
+    <div class="slide-label">Step 07 — Dashboard</div>
+    <h2 class="slide-title">Test <span class="grad-text">Dashboard</span></h2>
+    <div class="dash-grid">
+      <div class="dash-stat glass" id="ds1"><div class="ds-label">Tests Run</div><div class="ds-value">24</div><div class="ds-change up">↑ 6 this session</div></div>
+      <div class="dash-stat glass" id="ds2"><div class="ds-label">Avg Recovery</div><div class="ds-value">15.3s</div><div class="ds-change down">↑ 2.1s vs baseline</div></div>
+      <div class="dash-stat glass" id="ds3"><div class="ds-label">Resilience Score</div><div class="ds-value">7/10</div><div class="ds-change up">↑ +1 vs v1.2</div></div>
+      <div class="dash-stat glass" id="ds4"><div class="ds-label">Issues Found</div><div class="ds-value" style="color:var(--warn)">3</div><div class="ds-change down">1 critical · 2 warnings</div></div>
+    </div>
+    <div class="mini-chart glass">
+      <div class="mini-chart-label">Recovery Time (ms) over chaos events</div>
+      <svg class="chart-svg" id="chart-svg" viewBox="0 0 600 60" preserveAspectRatio="none">
+        <defs><linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(255,255,255,0.35)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/></linearGradient></defs>
+        <polyline id="chart-line" points="" stroke="rgba(255,255,255,0.45)" stroke-width="1.2" fill="none"/>
+        <polyline id="chart-area" points="" stroke="none" fill="url(#cg)" opacity="0.18"/>
+      </svg>
+    </div>
+    <div class="dash-actions">
+      <button class="dash-btn primary-btn">📥 Download PDF Report</button>
+      <button class="dash-btn">💾 Save Test Scenario</button>
+      <button class="dash-btn">🔄 Re-run with New Params</button>
+      <button class="dash-btn">📊 Compare vs v1.2</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ S9: CLEANUP ═══════════ -->
+<div class="slide" id="slide-9">
+  <div class="slide-inner">
+    <div class="cleanup-icon">🧹</div>
+    <div class="slide-label">Step 08 — Cleanup</div>
+    <h2 class="slide-title">Sandbox <span class="grad-text">Teardown</span></h2>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--ash);margin-bottom:5px">Environment safely dismantled. Your system is untouched.</p>
+    <div class="cleanup-steps">
+      <div class="cleanup-step" id="cs1"><span>🛑</span><span class="cleanup-step-text">docker-compose down — All containers stopped</span><span class="cleanup-step-status done">DONE</span></div>
+      <div class="cleanup-step" id="cs2"><span>🗑</span><span class="cleanup-step-text">Volumes removed — mysql-data, app-logs purged</span><span class="cleanup-step-status done">DONE</span></div>
+      <div class="cleanup-step" id="cs3"><span>🌐</span><span class="cleanup-step-text">Network deleted — app-sandbox-7f3a cleaned</span><span class="cleanup-step-status done">DONE</span></div>
+      <div class="cleanup-step" id="cs4"><span>📄</span><span class="cleanup-step-text">Report saved — metricmantis-report-2026.pdf</span><span class="cleanup-step-status done">DONE</span></div>
+      <div class="cleanup-step" id="cs5"><span>🔒</span><span class="cleanup-step-text">Host environment — Fully isolated, zero impact</span><span class="cleanup-step-status done">DONE</span></div>
+    </div>
+    <div class="final-cta" id="final-cta">
+      <button class="btn-primary">Run Another Test</button>
+      <button class="btn-ghost">View Full Report</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── BUILD TRANSITION GRID
+const overlay = document.getElementById('transition-overlay');
+const COLS=6,ROWS=4,TOTAL=COLS*ROWS;
+for(let i=0;i<TOTAL;i++){const c=document.createElement('div');c.className='t-cell';overlay.appendChild(c);}
+const cells=overlay.querySelectorAll('.t-cell');
+
+// ── STATE
+let cur=1,total=9,animating=false;
+
+// ── DOTS
+const dotsEl=document.getElementById('dots');
+for(let i=0;i<total;i++){const d=document.createElement('div');d.className='dot'+(i===0?' active':'');d.addEventListener('click',()=>goTo(i+1));dotsEl.appendChild(d);}
+const updateDots=n=>document.querySelectorAll('.dot').forEach((d,i)=>d.className='dot'+(i===n-1?' active':''));
+const updateProg=n=>document.getElementById('progress-bar').style.width=(n/total*100)+'%';
+const updateCtr=n=>document.getElementById('counter').textContent=String(n).padStart(2,'0')+' / '+String(total).padStart(2,'0');
+
+// ── CINEMATIC COLUMN-DROP TRANSITION
+function runTransition(cb){
+  cells.forEach((c,i)=>{
+    const col=i%COLS,row=Math.floor(i/COLS);
+    setTimeout(()=>c.classList.add('drop'),col*28+row*12);
+  });
+  const cover=COLS*28+ROWS*12+50;
+  setTimeout(()=>{
+    cb();
+    cells.forEach((c,i)=>{
+      const col=i%COLS,row=Math.floor(i/COLS);
+      setTimeout(()=>{
+        c.classList.remove('drop');
+        c.classList.add('lift');
+        setTimeout(()=>c.classList.remove('lift'),280);
+      },(COLS-1-col)*28+row*10);
+    });
+  },cover);
+}
+
+// ── NAVIGATION
+function goTo(n){
+  if(n<1||n>total||n===cur||animating)return;
+  animating=true;
+  runTransition(()=>{
+    document.getElementById('slide-'+cur).classList.remove('active');
+    cur=n;
+    document.getElementById('slide-'+n).classList.add('active');
+    updateDots(n);updateProg(n);updateCtr(n);runSlideAnim(n);
+  });
+  setTimeout(()=>{animating=false;},(COLS*28+ROWS*12+50)+(COLS*28+ROWS*10)+350);
+}
+document.getElementById('next').addEventListener('click',()=>{goTo(cur+1);resetAuto();});
+document.getElementById('prev').addEventListener('click',()=>{goTo(cur-1);resetAuto();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){goTo(cur+1);resetAuto();}
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){goTo(cur-1);resetAuto();}
+});
+let tx=0;
+document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
+document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>48){goTo(dx<0?cur+1:cur-1);resetAuto();}},{passive:true});
+
+let autoT=setInterval(()=>goTo(cur+1>total?1:cur+1),9000);
+function resetAuto(){clearInterval(autoT);autoT=setInterval(()=>goTo(cur+1>total?1:cur+1),9000);}
+
+// ── SLIDE ANIMATIONS
+function runSlideAnim(n){
+  if(n===2)anim2();if(n===3)anim3();if(n===4)anim4();
+  if(n===5)anim5();if(n===6)anim6();if(n===7)anim7();
+  if(n===8)anim8();if(n===9)anim9();
+}
+function anim2(){
+  document.getElementById('upload-area').classList.add('uploading');
+  setTimeout(()=>document.getElementById('f1').classList.add('visible'),400);
+  setTimeout(()=>document.getElementById('f2').classList.add('visible'),800);
+  setTimeout(()=>document.getElementById('upload-progress').style.width='100%',600);
+  ['el1','el2','el3','el4','el5'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),1200+i*250));
+}
+function anim3(){
+  ['vc1','vc2','vc3'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('visible'),200+i*150));
+  for(let i=1;i<=12;i++)setTimeout(()=>document.getElementById('ci'+i).classList.add('show'),400+i*120);
+  setTimeout(()=>document.getElementById('val-summary').classList.add('show'),1900);
+}
+function anim4(){
+  ['ss1','ss2','ss3','ss4'].forEach((id,i)=>setTimeout(()=>{document.getElementById(id).classList.add('show');document.getElementById('sn'+(i+1)).classList.add('active');},200+i*500));
+  ['tl1','tl2','tl3','tl4','tl5','tl6','tl7','tl8','tl9','tl10','tl11','tl12'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),400+i*300));
+}
+function anim5(){
+  ['gn-frontend','gn-analytics','gn-db'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),300+i*400));
+  setTimeout(()=>{drawLines();document.getElementById('graph-alert').style.opacity='1';},1500);
+}
+function drawLines(){
+  function nc(id){const el=document.getElementById(id),er=el.getBoundingClientRect(),cr=document.getElementById('graph-canvas').getBoundingClientRect();return{x:er.left-cr.left+er.width/2,y:er.top-cr.top+er.height/2};}
+  setTimeout(()=>{
+    const fe=nc('gn-frontend'),an=nc('gn-analytics'),db=nc('gn-db');
+    const g1=document.getElementById('gl1');g1.setAttribute('x1',fe.x+55);g1.setAttribute('y1',fe.y);g1.setAttribute('x2',an.x-55);g1.setAttribute('y2',an.y);g1.style.opacity='1';
+    const g2=document.getElementById('gl2');g2.setAttribute('x1',an.x+55);g2.setAttribute('y1',an.y);g2.setAttribute('x2',db.x-55);g2.setAttribute('y2',db.y);g2.style.opacity='1';
+  },100);
+}
+function anim6(){
+  ['cb1','cb2','cb3','cb4'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),200+i*150));
+  ['mc1','mc2','mc3','mc4'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),300+i*200));
+}
+window.fireChaos=function(id){const btn=document.getElementById(id);btn.classList.add('fired');const a=btn.querySelector('.chaos-btn-action');a.textContent='FIRED';a.style.opacity='.5';};
+function anim7(){
+  ['rc1','rc2','rc3'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),200+i*200));
+  setTimeout(()=>document.getElementById('score-card').classList.add('show'),400);
+  for(let i=1;i<=9;i++)setTimeout(()=>document.getElementById('ri'+i).classList.add('show'),500+i*120);
+  setTimeout(()=>{
+    document.getElementById('score-ring-fill').style.strokeDashoffset=283*(1-.7);
+    let c=0;const el=document.getElementById('score-num');
+    const iv=setInterval(()=>{c++;el.textContent=c;if(c>=7)clearInterval(iv);},120);
+  },800);
+}
+function anim8(){
+  ['ds1','ds2','ds3','ds4'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),200+i*120));
+  setTimeout(()=>{
+    const v=[20,35,18,62,45,72,30,55,40,68,25,48,33,58,20,44,29,52,18,38];
+    const p=v.map((val,i)=>`${i*31.5},${60-val*.8}`).join(' ');
+    document.getElementById('chart-line').setAttribute('points',p);
+    document.getElementById('chart-area').setAttribute('points',p+` ${(v.length-1)*31.5},60 0,60`);
+  },400);
+}
+function anim9(){
+  ['cs1','cs2','cs3','cs4','cs5'].forEach((id,i)=>setTimeout(()=>document.getElementById(id).classList.add('show'),300+i*400));
+  setTimeout(()=>document.getElementById('final-cta').classList.add('show'),2800);
+}
+
+// ── SPLASH
+function dismissSplash(){
+  document.getElementById('splash').classList.add('exit');
+  setTimeout(()=>{document.getElementById('splash').style.display='none';runSlideAnim(1);},860);
+}
+document.getElementById('splash-enter').addEventListener('click',dismissSplash);
+setTimeout(dismissSplash,5800);
+document.body.addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+</script>
+</body>
+</html>
