@@ -1,0 +1,19 @@
+services:
+  web-app:
+    image: nginx:alpine
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  api:
+    image: node:20-alpine
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"

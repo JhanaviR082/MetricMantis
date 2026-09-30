@@ -1,0 +1,74 @@
+MetricMantis Chaos Engineering Report
+--------------------------------------
+
+Project Overview:
+This project demonstrates a microservices-based system using Docker Compose with three services:
+- API Service (Node.js)
+- Database Service (PostgreSQL)
+- Web Service (Nginx)
+
+The system is designed to simulate real-world distributed architecture and test failure handling using chaos engineering principles.
+
+--------------------------------------
+
+System Architecture:
+- Web-App (Nginx) → Frontend server
+- API (Node.js) → Business logic layer
+- Database (PostgreSQL) → Data storage layer
+
+--------------------------------------
+
+Objective:
+To analyze system behavior under failure conditions by simulating a database outage and observing its impact on the API service.
+
+--------------------------------------
+
+Experiment Performed:
+A controlled failure was introduced by stopping the database container.
+
+Command Used:
+docker stop db
+
+--------------------------------------
+
+Observed Behavior:
+After stopping the database container:
+- The API service remained running
+- API attempted to connect to the database
+- Database connection failed
+
+--------------------------------------
+
+Error Log Evidence:
+DB connection failed: connect ECONNREFUSED 172.19.0.3:5432
+
+--------------------------------------
+
+Impact Analysis:
+- API lost connection to database
+- Requests depending on database failed
+- System showed clear dependency on database service
+- Single point of failure identified
+
+--------------------------------------
+
+Key Learnings:
+- Microservices are dependent on networked services
+- Failure in one service can impact dependent services
+- Docker makes it easy to simulate real-world production failures
+- Logs are critical for debugging distributed systems
+
+--------------------------------------
+
+Conclusion:
+The system is not fully fault-tolerant. The database acts as a single point of failure. To improve resilience, the following enhancements are recommended:
+
+- Implement database replication (master-slave setup)
+- Add retry and fallback mechanisms in API
+- Use health checks in Docker Compose
+- Add restart policies for automatic recovery
+- Introduce monitoring tools for observability
+
+--------------------------------------
+
+End of Report

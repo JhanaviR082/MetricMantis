@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MetricMantis Dependency Graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/vis-network/standalone/umd/vis-network.min.js"></script>
+  <style>
+    #network {
+      width: 100%;
+      height: 600px;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Service Dependency Graph</h2>
+<div id="network"></div>
+
+<script>
+  const nodes = new vis.DataSet([
+    { id: 1, label: "Web App (Nginx)" },
+    { id: 2, label: "API Service (Node.js)" },
+    { id: 3, label: "Database (Postgres)" }
+  ]);
+
+  const edges = new vis.DataSet([
+    { from: 1, to: 2 },
+    { from: 2, to: 3 }
+  ]);
+
+  const container = document.getElementById("network");
+
+  const data = { nodes, edges };
+
+  const options = {
+    layout: { hierarchical: true },
+    physics: false
+  };
+
+  new vis.Network(container, data, options);
+</script>
+
+</body>
+</html>

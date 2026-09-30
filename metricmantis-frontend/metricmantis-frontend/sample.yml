@@ -1,0 +1,145 @@
+version: "3.9"
+
+services:
+
+  frontend:
+    image: nginx:latest
+    container_name: shop-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+
+  api-gateway:
+    image: nginx:latest
+    container_name: shop-api-gateway
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-service
+      - product-service
+      - order-service
+
+  auth-service:
+    image: node:20-alpine
+    container_name: shop-auth
+    environment:
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_NAME: authdb
+      DB_USER: admin
+      DB_PASSWORD: auth_password
+    depends_on:
+      - auth-db
+      - redis
+
+  product-service:
+    image: node:20-alpine
+    container_name: shop-products
+    environment:
+      DB_HOST: product-db
+      DB_PORT: 5432
+      DB_NAME: products
+      DB_USER: admin
+      DB_PASSWORD: product_password
+    depends_on:
+      - product-db
+      - redis
+
+  order-service:
+    image: node:20-alpine
+    container_name: shop-orders
+    environment:
+      DB_HOST: order-db
+      DB_PORT: 5432
+      DB_NAME: orders
+      DB_USER: admin
+      DB_PASSWORD: order_password
+    depends_on:
+      - order-db
+      - payment-service
+      - message-queue
+
+  payment-service:
+    image: node:20-alpine
+    container_name: shop-payment
+    environment:
+      PAYMENT_PROVIDER: stripe
+      DB_HOST: payment-db
+    depends_on:
+      - payment-db
+
+  notification-service:
+    image: node:20-alpine
+    container_name: shop-notification
+    depends_on:
+      - message-queue
+
+  auth-db:
+    image: postgres:16
+    container_name: shop-auth-db
+    restart: always
+    environment:
+      POSTGRES_DB: authdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: auth_password
+    volumes:
+      - auth_data:/var/lib/postgresql/data
+
+  product-db:
+    image: postgres:16
+    container_name: shop-product-db
+    restart: always
+    environment:
+      POSTGRES_DB: products
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: product_password
+    volumes:
+      - product_data:/var/lib/postgresql/data
+
+  order-db:
+    image: postgres:16
+    container_name: shop-order-db
+    restart: always
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: order_password
+    volumes:
+      - order_data:/var/lib/postgresql/data
+
+  payment-db:
+    image: postgres:16
+    container_name: shop-payment-db
+    restart: always
+    environment:
+      POSTGRES_DB: payments
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: payment_password
+    volumes:
+      - payment_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: shop-redis
+    restart: unless-stopped
+
+  message-queue:
+    image: rabbitmq:3-management
+    container_name: shop-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+
+  monitoring:
+    image: prom/prometheus:latest
+    container_name: shop-monitoring
+    ports:
+      - "9090:9090"
+
+volumes:
+  auth_data:
+  product_data:
+  order_data:
+  payment_data:

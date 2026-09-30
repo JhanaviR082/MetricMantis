@@ -1,0 +1,29 @@
+services:
+ db:
+  image: postgres:15-alpine
+  container_name: db
+  restart: unless-stopped
+  environment:
+    POSTGRES_USER: user
+    POSTGRES_PASSWORD: password
+    POSTGRES_DB: chaosdb
+  ports:
+    - "5433:5432"
+    
+ api:
+  build: .
+  container_name: api
+  restart: unless-stopped
+  working_dir: /app
+  volumes:
+    - .:/app
+  depends_on:
+    - db
+  command: node index.js
+
+ web-app:
+  image: nginx:latest
+  container_name: web-app
+  restart: unless-stopped
+  ports:
+    - "8090:80"

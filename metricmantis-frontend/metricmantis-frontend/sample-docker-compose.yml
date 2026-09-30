@@ -1,0 +1,138 @@
+version: "3.9"
+
+services:
+  frontend:
+    image: nginx:latest
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-gateway:
+    image: node:18
+    command: node server.js
+    ports:
+      - "4000:4000"
+    depends_on:
+      - auth-service
+      - user-service
+      - order-service
+    restart: on-failure
+    environment:
+      JWT_SECRET: supersecretkey
+
+  auth-service:
+    image: node:18
+    command: node auth.js
+    depends_on:
+      - user-db
+    restart: unless-stopped
+    environment:
+      DB_HOST: user-db
+      DB_USER: admin
+      DB_PASSWORD: password123
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 20s
+      timeout: 5s
+
+  user-service:
+    image: node:18
+    command: node user.js
+    depends_on:
+      - user-db
+      - cache
+    restart: unless-stopped
+    environment:
+      DB_HOST: user-db
+      CACHE_HOST: cache
+
+  order-service:
+    image: node:18
+    command: node orders.js
+    depends_on:
+      - order-db
+      - payment-service
+    restart: on-failure
+    environment:
+      DB_HOST: order-db
+
+  payment-service:
+    image: node:18
+    command: node payment.js
+    depends_on:
+      - payment-db
+    restart: unless-stopped
+    environment:
+      PAYMENT_PROVIDER_KEY: key_123456
+
+  notification-service:
+    image: node:18
+    command: node notify.js
+    depends_on:
+      - message-queue
+    restart: always
+
+  analytics-service:
+    image: node:18
+    command: node analytics.js
+    depends_on:
+      - user-db
+      - order-db
+    restart: unless-stopped
+
+  cache:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    restart: always
+
+  message-queue:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: always
+
+  user-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: users
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+
+  order-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: orders
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+    restart: always
+
+  payment-db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: payments
+    volumes:
+      - payment_db_data:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  user_db_data:
+  order_db_data:
+  payment_db_data:

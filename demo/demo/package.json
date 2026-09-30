@@ -1,0 +1,21 @@
+{
+  "name": "demo",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "## 📌 Project Overview MetricMantis is a simple microservices-based system built using Docker Compose to demonstrate **chaos engineering principles**.   It simulates real-world distributed system behavior by intentionally introducing failures and observing system resilience.",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "js-yaml": "^4.1.1",
+    "multer": "^2.1.1",
+    "pg": "^8.21.0"
+  }
+}
