@@ -9,17 +9,6 @@ The system consists of:
 - Database Service (PostgreSQL)
 - Web Service (Nginx)
 
----
-
-## 🏗️ System Architecture
-
-```
-    [ Web App - Nginx ]
-             ↓
-      [ API Service ]
-             ↓
-  [ PostgreSQL Database ]
-```
 
 ---
 
