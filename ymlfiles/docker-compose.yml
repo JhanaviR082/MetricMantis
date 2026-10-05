@@ -1,0 +1,826 @@
+name: enterprise-commerce-platform
+
+services:
+
+  # ============================================================
+  # EDGE LAYER
+  # ============================================================
+
+  frontend:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+      - frontend-assets
+    networks:
+      - edge
+
+  frontend-assets:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-frontend-assets
+    restart: unless-stopped
+    depends_on:
+      - asset-storage
+    networks:
+      - edge
+      - storage-network
+
+  api-gateway:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - auth-service
+      - user-service
+      - catalog-service
+      - product-service
+      - cart-service
+      - order-service
+      - payment-service
+      - notification-service
+      - search-service
+    networks:
+      - edge
+      - backend
+
+
+  # ============================================================
+  # AUTHENTICATION
+  # ============================================================
+
+  auth-service:
+    image: node:22-alpine
+    container_name: ecommerce-auth
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://auth_user:auth_password@auth-db:5432/authdb
+      REDIS_URL: redis://auth-redis:6379
+    depends_on:
+      - auth-db
+      - auth-redis
+    networks:
+      - backend
+      - auth-network
+
+  auth-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-auth-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: authdb
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - auth-network
+
+  auth-redis:
+    image: redis:7-alpine
+    container_name: ecommerce-auth-redis
+    restart: unless-stopped
+    volumes:
+      - auth-redis-data:/data
+    networks:
+      - auth-network
+
+
+  # ============================================================
+  # USER SERVICE
+  # ============================================================
+
+  user-service:
+    image: node:22-alpine
+    container_name: ecommerce-user
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      DATABASE_URL: postgres://user_user:user_password@user-db:5432/userdb
+      REDIS_URL: redis://user-redis:6379
+    depends_on:
+      - auth-service
+      - user-db
+      - user-redis
+    networks:
+      - backend
+      - user-network
+
+  user-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-user-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: userdb
+      POSTGRES_USER: user_user
+      POSTGRES_PASSWORD: user_password
+    volumes:
+      - user-db-data:/var/lib/postgresql/data
+    depends_on:
+      - auth-db
+    networks:
+      - user-network
+
+  user-redis:
+    image: redis:7-alpine
+    container_name: ecommerce-user-redis
+    restart: unless-stopped
+    depends_on:
+      - auth-redis
+    networks:
+      - user-network
+
+
+  # ============================================================
+  # CATALOG SERVICE
+  # ============================================================
+
+  catalog-service:
+    image: node:22-alpine
+    container_name: ecommerce-catalog
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      DATABASE_URL: postgres://catalog_user:catalog_password@catalog-db:5432/catalogdb
+      SEARCH_URL: http://search-service:3000
+      REDIS_URL: redis://catalog-redis:6379
+    depends_on:
+      - catalog-db
+      - catalog-redis
+      - search-service
+    networks:
+      - backend
+      - catalog-network
+
+  catalog-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-catalog-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: catalogdb
+      POSTGRES_USER: catalog_user
+      POSTGRES_PASSWORD: catalog_password
+    volumes:
+      - catalog-db-data:/var/lib/postgresql/data
+    depends_on:
+      - user-db
+    networks:
+      - catalog-network
+
+  catalog-redis:
+    image: redis:7-alpine
+    container_name: ecommerce-catalog-redis
+    restart: unless-stopped
+    depends_on:
+      - user-redis
+    networks:
+      - catalog-network
+
+
+  # ============================================================
+  # PRODUCT SERVICE
+  # ============================================================
+
+  product-service:
+    image: node:22-alpine
+    container_name: ecommerce-product
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      DATABASE_URL: postgres://product_user:product_password@product-db:5432/productdb
+      CATALOG_URL: http://catalog-service:3000
+      SEARCH_URL: http://search-service:3000
+    depends_on:
+      - catalog-service
+      - product-db
+      - search-service
+    networks:
+      - backend
+      - product-network
+
+  product-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-product-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: productdb
+      POSTGRES_USER: product_user
+      POSTGRES_PASSWORD: product_password
+    volumes:
+      - product-db-data:/var/lib/postgresql/data
+    depends_on:
+      - catalog-db
+    networks:
+      - product-network
+
+
+  # ============================================================
+  # SEARCH
+  # ============================================================
+
+  search-service:
+    image: node:22-alpine
+    container_name: ecommerce-search
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - backend
+      - search-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: ecommerce-elasticsearch
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - search-network
+
+
+  # ============================================================
+  # CART SERVICE
+  # ============================================================
+
+  cart-service:
+    image: node:22-alpine
+    container_name: ecommerce-cart
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      CART_DB_URL: postgres://cart_user:cart_password@cart-db:5432/cartdb
+      REDIS_URL: redis://cart-redis:6379
+      USER_SERVICE_URL: http://user-service:3000
+      PRODUCT_SERVICE_URL: http://product-service:3000
+    depends_on:
+      - user-service
+      - product-service
+      - cart-db
+      - cart-redis
+    networks:
+      - backend
+      - cart-network
+
+  cart-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-cart-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cartdb
+      POSTGRES_USER: cart_user
+      POSTGRES_PASSWORD: cart_password
+    volumes:
+      - cart-db-data:/var/lib/postgresql/data
+    depends_on:
+      - user-db
+      - product-db
+    networks:
+      - cart-network
+
+  cart-redis:
+    image: redis:7-alpine
+    container_name: ecommerce-cart-redis
+    restart: unless-stopped
+    depends_on:
+      - user-redis
+      - catalog-redis
+    networks:
+      - cart-network
+
+
+  # ============================================================
+  # ORDER SERVICE
+  # ============================================================
+
+  order-service:
+    image: node:22-alpine
+    container_name: ecommerce-order
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      DATABASE_URL: postgres://order_user:order_password@order-db:5432/orderdb
+      CART_SERVICE_URL: http://cart-service:3000
+      INVENTORY_SERVICE_URL: http://inventory-service:3000
+      PAYMENT_SERVICE_URL: http://payment-service:3000
+      KAFKA_URL: kafka:9092
+    depends_on:
+      - cart-service
+      - inventory-service
+      - payment-service
+      - order-db
+      - kafka
+    networks:
+      - backend
+      - order-network
+
+  order-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-order-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: orderdb
+      POSTGRES_USER: order_user
+      POSTGRES_PASSWORD: order_password
+    volumes:
+      - order-db-data:/var/lib/postgresql/data
+    depends_on:
+      - cart-db
+      - inventory-db
+    networks:
+      - order-network
+
+
+  # ============================================================
+  # INVENTORY SERVICE
+  # ============================================================
+
+  inventory-service:
+    image: node:22-alpine
+    container_name: ecommerce-inventory
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      DATABASE_URL: postgres://inventory_user:inventory_password@inventory-db:5432/inventorydb
+      REDIS_URL: redis://inventory-redis:6379
+      KAFKA_URL: kafka:9092
+    depends_on:
+      - inventory-db
+      - inventory-redis
+      - kafka
+    networks:
+      - backend
+      - inventory-network
+
+  inventory-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-inventory-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: inventorydb
+      POSTGRES_USER: inventory_user
+      POSTGRES_PASSWORD: inventory_password
+    volumes:
+      - inventory-db-data:/var/lib/postgresql/data
+    depends_on:
+      - product-db
+    networks:
+      - inventory-network
+
+  inventory-redis:
+    image: redis:7-alpine
+    container_name: ecommerce-inventory-redis
+    restart: unless-stopped
+    depends_on:
+      - product-service
+    networks:
+      - inventory-network
+
+
+  # ============================================================
+  # PAYMENT SERVICE
+  # ============================================================
+
+  payment-service:
+    image: node:22-alpine
+    container_name: ecommerce-payment
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      DATABASE_URL: postgres://payment_user:payment_password@payment-db:5432/paymentdb
+      PAYMENT_GATEWAY_URL: http://payment-gateway:3000
+      KAFKA_URL: kafka:9092
+    depends_on:
+      - payment-db
+      - payment-gateway
+      - kafka
+    networks:
+      - backend
+      - payment-network
+
+  payment-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-payment-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: paymentdb
+      POSTGRES_USER: payment_user
+      POSTGRES_PASSWORD: payment_password
+    volumes:
+      - payment-db-data:/var/lib/postgresql/data
+    depends_on:
+      - order-db
+    networks:
+      - payment-network
+
+  payment-gateway:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-payment-gateway
+    restart: unless-stopped
+    depends_on:
+      - payment-provider
+    networks:
+      - payment-network
+
+  payment-provider:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-payment-provider
+    restart: unless-stopped
+    networks:
+      - payment-network
+
+
+  # ============================================================
+  # MESSAGE BROKER
+  # ============================================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.1
+    container_name: ecommerce-zookeeper
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - messaging-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.7.1
+    container_name: ecommerce-kafka
+    restart: unless-stopped
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    networks:
+      - messaging-network
+      - backend
+
+
+  # ============================================================
+  # NOTIFICATION SERVICE
+  # ============================================================
+
+  notification-service:
+    image: node:22-alpine
+    container_name: ecommerce-notification
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      KAFKA_URL: kafka:9092
+      NOTIFICATION_DB_URL: postgres://notification_user:notification_password@notification-db:5432/notificationdb
+      EMAIL_SERVICE_URL: http://email-service:3000
+      SMS_SERVICE_URL: http://sms-service:3000
+    depends_on:
+      - kafka
+      - notification-db
+      - email-service
+      - sms-service
+    networks:
+      - backend
+      - notification-network
+
+  notification-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-notification-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: notificationdb
+      POSTGRES_USER: notification_user
+      POSTGRES_PASSWORD: notification_password
+    volumes:
+      - notification-db-data:/var/lib/postgresql/data
+    depends_on:
+      - order-db
+    networks:
+      - notification-network
+
+  email-service:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-email
+    restart: unless-stopped
+    depends_on:
+      - smtp-service
+    networks:
+      - notification-network
+
+  sms-service:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-sms
+    restart: unless-stopped
+    depends_on:
+      - sms-provider
+    networks:
+      - notification-network
+
+  smtp-service:
+    image: mailhog/mailhog:v1.0.1
+    container_name: ecommerce-smtp
+    restart: unless-stopped
+    networks:
+      - notification-network
+
+  sms-provider:
+    image: nginx:1.27-alpine
+    container_name: ecommerce-sms-provider
+    restart: unless-stopped
+    networks:
+      - notification-network
+
+
+  # ============================================================
+  # BACKGROUND WORKERS
+  # ============================================================
+
+  order-worker:
+    image: node:22-alpine
+    container_name: ecommerce-order-worker
+    restart: unless-stopped
+    working_dir: /app
+    command: node worker.js
+    environment:
+      KAFKA_URL: kafka:9092
+      ORDER_DB_URL: postgres://order_user:order_password@order-db:5432/orderdb
+      NOTIFICATION_URL: http://notification-service:3000
+    depends_on:
+      - kafka
+      - order-db
+      - notification-service
+    networks:
+      - backend
+      - worker-network
+
+  inventory-worker:
+    image: node:22-alpine
+    container_name: ecommerce-inventory-worker
+    restart: unless-stopped
+    working_dir: /app
+    command: node worker.js
+    environment:
+      KAFKA_URL: kafka:9092
+      INVENTORY_DB_URL: postgres://inventory_user:inventory_password@inventory-db:5432/inventorydb
+    depends_on:
+      - kafka
+      - inventory-db
+      - inventory-service
+    networks:
+      - backend
+      - worker-network
+
+  analytics-worker:
+    image: node:22-alpine
+    container_name: ecommerce-analytics-worker
+    restart: unless-stopped
+    working_dir: /app
+    command: node worker.js
+    environment:
+      KAFKA_URL: kafka:9092
+      ANALYTICS_DB_URL: postgres://analytics_user:analytics_password@analytics-db:5432/analyticsdb
+    depends_on:
+      - kafka
+      - analytics-db
+    networks:
+      - backend
+      - analytics-network
+
+
+  # ============================================================
+  # ANALYTICS
+  # ============================================================
+
+  analytics-service:
+    image: node:22-alpine
+    container_name: ecommerce-analytics
+    restart: unless-stopped
+    working_dir: /app
+    command: node server.js
+    environment:
+      DATABASE_URL: postgres://analytics_user:analytics_password@analytics-db:5432/analyticsdb
+      KAFKA_URL: kafka:9092
+    depends_on:
+      - analytics-db
+      - kafka
+      - analytics-worker
+    networks:
+      - backend
+      - analytics-network
+
+  analytics-db:
+    image: postgres:16-alpine
+    container_name: ecommerce-analytics-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: analyticsdb
+      POSTGRES_USER: analytics_user
+      POSTGRES_PASSWORD: analytics_password
+    volumes:
+      - analytics-db-data:/var/lib/postgresql/data
+    depends_on:
+      - order-db
+      - inventory-db
+    networks:
+      - analytics-network
+
+
+  # ============================================================
+  # FILE / OBJECT STORAGE
+  # ============================================================
+
+  asset-storage:
+    image: minio/minio:latest
+    container_name: ecommerce-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: change_this_password
+    volumes:
+      - minio-data:/data
+    networks:
+      - storage-network
+
+
+  # ============================================================
+  # MONITORING
+  # ============================================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ecommerce-prometheus
+    restart: unless-stopped
+    depends_on:
+      - api-gateway
+      - auth-service
+      - user-service
+      - catalog-service
+      - product-service
+      - cart-service
+      - order-service
+      - inventory-service
+      - payment-service
+      - notification-service
+      - analytics-service
+    volumes:
+      - prometheus-data:/prometheus
+    networks:
+      - monitoring-network
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ecommerce-grafana
+    restart: unless-stopped
+    ports:
+      - "3005:3000"
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - monitoring-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: ecommerce-jaeger
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    ports:
+      - "16686:16686"
+    networks:
+      - monitoring-network
+
+
+# ==============================================================
+# VOLUMES
+# ==============================================================
+
+volumes:
+
+  auth-db-data:
+  auth-redis-data:
+
+  user-db-data:
+  catalog-db-data:
+  product-db-data:
+
+  cart-db-data:
+  cart-redis-data:
+
+  order-db-data:
+
+  inventory-db-data:
+  inventory-redis-data:
+
+  payment-db-data:
+
+  notification-db-data:
+
+  analytics-db-data:
+
+  elasticsearch-data:
+
+  minio-data:
+
+  prometheus-data:
+  grafana-data:
+
+
+# ==============================================================
+# NETWORKS
+# ==============================================================
+
+networks:
+
+  edge:
+    driver: bridge
+
+  backend:
+    driver: bridge
+
+  auth-network:
+    driver: bridge
+    internal: true
+
+  user-network:
+    driver: bridge
+    internal: true
+
+  catalog-network:
+    driver: bridge
+    internal: true
+
+  product-network:
+    driver: bridge
+    internal: true
+
+  search-network:
+    driver: bridge
+    internal: true
+
+  cart-network:
+    driver: bridge
+    internal: true
+
+  order-network:
+    driver: bridge
+    internal: true
+
+  inventory-network:
+    driver: bridge
+    internal: true
+
+  payment-network:
+    driver: bridge
+    internal: true
+
+  notification-network:
+    driver: bridge
+    internal: true
+
+  messaging-network:
+    driver: bridge
+    internal: true
+
+  worker-network:
+    driver: bridge
+    internal: true
+
+  analytics-network:
+    driver: bridge
+    internal: true
+
+  storage-network:
+    driver: bridge
+    internal: true
+
+  monitoring-network:
+    driver: bridge
