@@ -19,6 +19,10 @@ The browser app does the analysis locally. A Node API handles username/password 
 
 A sample file ships with the frontend: `metricmantis-frontend/metricmantis-frontend/public/sample-docker-compose.yml`.
 
+## UI tweaks
+
+- **Dark / light mode** — toggle in the header switches between a dark charcoal theme and a warm off-white theme. Both use the same grid-line aesthetic, frosted glass cards, and noise texture. The preference is saved to `localStorage` and restored on every visit.
+
 ## Architecture
 
 ```text
