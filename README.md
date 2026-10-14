@@ -21,7 +21,7 @@ A sample file ships with the frontend: `metricmantis-frontend/metricmantis-front
 
 ## UI 
 
-- **Dark / light mode** — toggle in the header switches between a dark charcoal theme and a warm off-white theme. 
+**Dark / light mode** toggle switches between a dark charcoal theme and a warm off-white theme. 
 
 ## Architecture
 
