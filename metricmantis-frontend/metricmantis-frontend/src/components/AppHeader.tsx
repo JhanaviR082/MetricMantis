@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { PAGE_ORDER, useSystem, type WorkflowPage } from "@/context/SystemContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const LABELS: Record<WorkflowPage, string> = {
   upload: "Upload",
@@ -13,7 +14,7 @@ const LABELS: Record<WorkflowPage, string> = {
 
 export function AppHeader() {
   const { page, setPage, openGuide, goBack, analyzed } = useSystem();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
   const workflowIndex = page === "guide" ? -1 : PAGE_ORDER.indexOf(page);
   const canGoBack = page === "guide" || workflowIndex > 0;
@@ -67,7 +68,7 @@ export function AppHeader() {
         </button>
       </nav>
       <div className="app-header-right">
-        {user && <span className="app-user">{user.username}</span>}
+        <ThemeToggle />
         <button
           type="button"
           className="app-nav-link"

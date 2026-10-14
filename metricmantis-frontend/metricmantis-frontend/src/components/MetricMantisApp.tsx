@@ -11,13 +11,17 @@ import { ReportPage } from "@/components/pages/ReportPage";
 import { GuidePage } from "@/components/pages/GuidePage";
 import { UploadPage } from "@/components/pages/UploadPage";
 import { Splash } from "@/components/Splash";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { SystemProvider, useSystem } from "@/context/SystemContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 export function MetricMantisApp() {
   return (
     <AuthProvider>
-      <AuthGate />
+      <ThemeProvider>
+        <AuthGate />
+      </ThemeProvider>
     </AuthProvider>
   );
 }
@@ -39,6 +43,7 @@ function AuthGate() {
 
   return (
     <>
+      {!isAuthenticated && <ThemeToggle floating />}
       {showSplash && (
         <>
           <Background />
