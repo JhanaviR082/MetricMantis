@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { PAGE_ORDER, useSystem, type WorkflowPage } from "@/context/SystemContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const LABELS: Record<WorkflowPage, string> = {
   upload: "Upload",
@@ -11,8 +14,19 @@ const LABELS: Record<WorkflowPage, string> = {
 
 export function AppHeader() {
   const { page, setPage, openGuide, goBack, analyzed } = useSystem();
+  const { logout } = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
   const workflowIndex = page === "guide" ? -1 : PAGE_ORDER.indexOf(page);
   const canGoBack = page === "guide" || workflowIndex > 0;
+
+  async function onLogout() {
+    setLoggingOut(true);
+    try {
+      await logout();
+    } catch {
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <header className="app-header">
@@ -53,6 +67,17 @@ export function AppHeader() {
           ✦ Platform Guide
         </button>
       </nav>
+      <div className="app-header-right">
+        <ThemeToggle />
+        <button
+          type="button"
+          className="app-nav-link"
+          onClick={() => void onLogout()}
+          disabled={loggingOut}
+        >
+          Logout
+        </button>
+      </div>
     </header>
   );
 }

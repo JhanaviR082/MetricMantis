@@ -1,5 +1,12 @@
 require("dotenv").config();
 
+if (!process.env.SESSION_SECRET || !process.env.SESSION_SECRET.trim()) {
+  console.error(
+    "SESSION_SECRET is missing. Copy .env.example to .env and set SESSION_SECRET before starting the server.",
+  );
+  process.exit(1);
+}
+
 const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
@@ -7,11 +14,38 @@ const yaml = require("js-yaml");
 const fs = require("fs");
 const { exec } = require("child_process");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { initDatabase } = require("./database/database");
+const { sessionMiddleware } = require("./auth/session");
+const authRoutes = require("./routes/authRoutes");
+const requireAuth = require("./middleware/requireAuth");
+
+initDatabase();
 
 const app = express();
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 
-app.use(cors());
+// The UI on :3000 calls this API on :3001. Browsers only store that
+// cross-origin session cookie when it is Secure + SameSite=None, and they
+// accept Secure cookies on http://localhost. express-session withholds a
+// Secure cookie unless the request looks like HTTPS, so local HTTP is
+// treated as secure here. Production must actually be served over HTTPS.
+if (process.env.NODE_ENV !== "production") {
+  app.set("trust proxy", 1);
+  app.use((req, _res, next) => {
+    req.headers["x-forwarded-proto"] = "https";
+    next();
+  });
+}
+
+app.use(
+  cors({
+    origin: frontendUrl,
+    credentials: true,
+  }),
+);
 app.use(express.json());
+app.use(sessionMiddleware());
+app.use("/auth", authRoutes);
 
 const upload = multer({ dest: "uploads/" });
 
@@ -35,7 +69,7 @@ function getGeminiClient() {
 // =============================
 // Upload + Parse YAML
 // =============================
-app.post("/upload", upload.single("file"), (req, res) => {
+app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
   try {
     const fileContent = fs.readFileSync(req.file.path, "utf8");
 
@@ -82,7 +116,7 @@ app.post("/upload", upload.single("file"), (req, res) => {
 // =============================
 // Get Graph
 // =============================
-app.get("/graph", (req, res) => {
+app.get("/graph", requireAuth, (req, res) => {
   res.json(graphData);
 });
 
@@ -90,7 +124,7 @@ app.get("/graph", (req, res) => {
 // =============================
 // Stop Service (Chaos)
 // =============================
-app.post("/chaos/stop/:service", (req, res) => {
+app.post("/chaos/stop/:service", requireAuth, (req, res) => {
   const service = req.params.service;
 
   exec(`docker stop ${service}`, (err, stdout, stderr) => {
@@ -119,7 +153,7 @@ app.post("/chaos/stop/:service", (req, res) => {
 // =============================
 // Restart Service
 // =============================
-app.post("/chaos/restart/:service", (req, res) => {
+app.post("/chaos/restart/:service", requireAuth, (req, res) => {
   const service = req.params.service;
 
   exec(`docker start ${service}`, (err, stdout, stderr) => {
@@ -148,7 +182,7 @@ app.post("/chaos/restart/:service", (req, res) => {
 // =============================
 // Logs
 // =============================
-app.get("/logs/:service", (req, res) => {
+app.get("/logs/:service", requireAuth, (req, res) => {
   const service = req.params.service;
 
   exec(`docker logs ${service}`, (err, stdout, stderr) => {
@@ -169,7 +203,7 @@ app.get("/logs/:service", (req, res) => {
 // =============================
 // Report
 // =============================
-app.get("/report", (req, res) => {
+app.get("/report", requireAuth, (req, res) => {
 
   const failedServices = graphData.nodes
     .filter((n) => n.status === "failed")
@@ -216,7 +250,7 @@ function buildSlimReport(report) { //function to slim down the report for the ad
 // =============================
 // Advisor — Summary
 // =============================
-app.post("/api/advisor/summary", async (req, res) => {
+app.post("/api/advisor/summary", requireAuth, async (req, res) => {
   const { report } = req.body;
 
   if (!report || typeof report !== "object") {
@@ -281,7 +315,7 @@ app.post("/api/advisor/summary", async (req, res) => {
 // =============================
 // Advisor — Chat
 // =============================
-app.post("/api/advisor/chat", async (req, res) => {
+app.post("/api/advisor/chat", requireAuth, async (req, res) => {
   const { report, history, question } = req.body;
 
   if (!question || typeof question !== "string" || !question.trim()) {
