@@ -15,7 +15,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MetricMantis — Chaos Testing Platform",
+  title: "MetricMantis | Chaos Testing Platform",
   description: "Chaos engineering platform for microservice resilience testing",
 };
 

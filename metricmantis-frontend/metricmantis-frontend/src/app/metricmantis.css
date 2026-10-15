@@ -28,23 +28,29 @@
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #f4f6f3;
-  --surface: rgba(26, 42, 32, 0.035);
-  --surface2: rgba(26, 42, 32, 0.065);
-  --border: rgba(26, 42, 32, 0.12);
-  --border2: rgba(26, 42, 32, 0.2);
-  --border3: rgba(26, 42, 32, 0.3);
-  --chalk: #18221c;
-  --bone: #27342c;
-  --silver: #46554b;
-  --pewter: #435148;
-  --ash: #505d54;
-  --cinder: #69766d;
-  --white: #18221c;
-  --header-bg: rgba(247, 249, 246, 0.92);
-  --input-bg: rgba(26, 42, 32, 0.035);
-  --panel-bg: rgba(255, 255, 255, 0.76);
-  --panel-border: rgba(26, 42, 32, 0.12);
+  /* A warm off-white that still feels considered, not clinical */
+  --bg: #f0eeea;
+  --surface: rgba(30, 30, 28, 0.04);
+  --surface2: rgba(30, 30, 28, 0.08);
+  --border: rgba(30, 30, 28, 0.11);
+  --border2: rgba(30, 30, 28, 0.18);
+  --border3: rgba(30, 30, 28, 0.28);
+  /* Text palette — deep charcoal, not green-tinted */
+  --chalk: #1a1916;
+  --bone: #2a2825;
+  --silver: #504e4a;
+  --pewter: #706e6a;
+  --ash: #8a8884;
+  --cinder: #b0aeaa;
+  --white: #1a1916;
+  --ok: #059669;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --header-bg: rgba(240, 238, 234, 0.88);
+  --input-bg: rgba(30, 30, 28, 0.04);
+  /* Glass panels: white with real depth */
+  --panel-bg: rgba(255, 255, 255, 0.72);
+  --panel-border: rgba(30, 30, 28, 0.11);
 }
 
 *,
@@ -352,13 +358,21 @@ body {
 .app-logo {
   font-family: var(--sans);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 15px;
   letter-spacing: -0.03em;
   color: var(--chalk);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.app-logo:hover {
+  opacity: 0.75;
 }
 .app-logo span {
   color: var(--silver);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .app-header-right {
@@ -367,31 +381,82 @@ body {
   gap: 8px;
 }
 
+/* ── Theme toggle: wide pill, both icons always visible, thumb slides ── */
 .theme-toggle {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--bone);
-  font-family: var(--mono);
-  font-size: 10px;
+  background: none;
+  border: none;
+  padding: 0;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  border-radius: 100px;
+  outline-offset: 3px;
 }
-.theme-toggle:hover {
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--border3);
+}
+
+/* The pill track */
+.tt-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 72px;
+  height: 36px;
+  border-radius: 100px;
   background: var(--surface2);
+  border: 1px solid var(--border2);
+  justify-content: space-between;
+  padding: 0 6px;
+  transition: background 0.3s, border-color 0.3s;
+  overflow: hidden;
+}
+.theme-toggle:hover .tt-track {
   border-color: var(--border3);
-  color: var(--chalk);
 }
-.theme-toggle span {
-  font-size: 14px;
-  line-height: 1;
+
+/* Sliding thumb */
+.tt-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 30px;
+  height: 28px;
+  border-radius: 100px;
+  background: var(--chalk);
+  z-index: 1;
+  transition: transform 0.35s cubic-bezier(0.34, 1.42, 0.64, 1), background 0.3s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
 }
+/* dark mode active (aria-pressed=true) → thumb shifts right over moon */
+[aria-pressed="true"] .tt-thumb {
+  transform: translateX(33px);
+}
+
+/* Icons sit above the thumb */
+.tt-icon {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  transition: color 0.25s;
+  pointer-events: none;
+}
+
+/* Light mode (default, aria-pressed=false): thumb on left over sun — sun highlighted */
+/* Thumb is white/chalk, so icon under it must be dark (bg color) to be visible */
+.tt-icon-sun  { color: var(--bg); }     /* active — contrasts against white thumb */
+.tt-icon-moon { color: var(--ash); }    /* inactive — dim */
+
+/* Dark mode (aria-pressed=true): thumb on right over moon — moon highlighted */
+[aria-pressed="true"] .tt-icon-sun  { color: var(--ash); }    /* inactive — dim */
+[aria-pressed="true"] .tt-icon-moon { color: var(--bg); }     /* active — contrasts against white thumb */
+
 .theme-toggle--floating {
   position: fixed;
   top: 18px;
@@ -399,10 +464,12 @@ body {
   z-index: 2101;
 }
 
+
 .app-user {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
   color: var(--pewter);
 }
 
@@ -414,10 +481,11 @@ body {
 
 .app-nav-link {
   font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 7px 12px;
+  padding: 7px 13px;
   border-radius: 6px;
   border: 1px solid transparent;
   background: transparent;
@@ -445,6 +513,18 @@ body {
   display: flex;
   justify-content: center;
   padding: 32px 20px 48px;
+  animation: pageEnter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .page-content {
@@ -454,7 +534,7 @@ body {
 
 .page-desc {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   color: var(--pewter);
   line-height: 1.7;
   margin: -18px 0 24px;
@@ -601,15 +681,16 @@ body {
 /* SHARED */
 .slide-label {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--ash);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   margin-bottom: 7px;
 }
 .slide-title {
-  font-size: clamp(26px, 4vw, 40px);
-  font-weight: 700;
+  font-size: clamp(30px, 4.5vw, 46px);
+  font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.1;
   margin-bottom: 30px;
@@ -667,11 +748,11 @@ body {
   background: var(--chalk);
   color: var(--bg);
   border: none;
-  padding: 12px 24px;
+  padding: 13px 26px;
   border-radius: 8px;
   font-family: var(--sans);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   letter-spacing: -0.01em;
   transition: all 0.2s;
@@ -691,11 +772,11 @@ body {
   background: rgba(255, 255, 255, 0.04);
   color: var(--pewter);
   border: 1px solid var(--border);
-  padding: 12px 24px;
+  padding: 13px 26px;
   border-radius: 8px;
   font-family: var(--sans);
-  font-weight: 500;
-  font-size: 13px;
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
   transition: all 0.2s;
   backdrop-filter: blur(8px);
@@ -740,14 +821,14 @@ body {
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.09);
 }
 .upload-text-main {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 700;
   margin-bottom: 4px;
   color: var(--bone);
 }
 .upload-text-sub {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--ash);
 }
 .hero-actions {
@@ -778,11 +859,11 @@ body {
   gap: 11px;
   padding: 11px 15px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 .service-dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--ok);
   flex-shrink: 0;
@@ -793,9 +874,10 @@ body {
 .service-name {
   flex: 1;
   color: var(--bone);
+  font-weight: 600;
 }
 .service-status {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--ash);
 }
 .file-list {
@@ -1127,8 +1209,8 @@ svg.graph-lines {
   border: 1px solid rgba(239, 68, 68, 0.22);
 }
 .metric-value {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
   letter-spacing: -0.03em;
   color: var(--chalk);
 }
@@ -1316,7 +1398,7 @@ svg.graph-lines {
 }
 
 .rf-node-name {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--bone);
   margin-bottom: 3px;
@@ -1324,7 +1406,7 @@ svg.graph-lines {
 
 .rf-node-meta {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--ash);
 }
 
@@ -1378,7 +1460,7 @@ svg.graph-lines {
 }
 
 .report-section-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--bone);
   letter-spacing: -0.02em;
@@ -1388,7 +1470,7 @@ svg.graph-lines {
 
 .report-p {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.75;
   color: var(--silver);
   margin-bottom: 8px;
@@ -1406,7 +1488,7 @@ svg.graph-lines {
 
 .report-ul li {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
   color: var(--ash);
   padding: 4px 0 4px 14px;
@@ -1428,7 +1510,7 @@ svg.graph-lines {
 .report-code,
 .report-log {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.7;
   padding: 10px 12px;
   margin-top: 8px;
@@ -1449,11 +1531,11 @@ svg.graph-lines {
   margin-top: 10px;
   border-collapse: collapse;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .report-table td {
-  padding: 7px 0;
+  padding: 8px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   color: var(--ash);
 }
@@ -1466,14 +1548,14 @@ svg.graph-lines {
 
 .report-score-final {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--silver);
   margin-top: 10px;
 }
 
 .report-score-final strong {
   color: var(--chalk);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* PLATFORM GUIDE */
@@ -1682,9 +1764,17 @@ svg.graph-lines {
 }
 
 .guide-feature-icon {
-  font-size: 20px;
-  display: block;
-  margin-bottom: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  border-radius: 9px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--silver);
+  flex-shrink: 0;
 }
 
 .guide-feature h3 {
@@ -1750,8 +1840,15 @@ svg.graph-lines {
 }
 
 .guide-step-icon {
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
   margin-right: 6px;
+  color: var(--silver);
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .guide-step-body h3 {
@@ -1920,9 +2017,34 @@ svg.graph-lines {
     grid-template-columns: 1fr;
   }
   .app-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .app-header-left {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+  .app-header-right {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+  .app-nav {
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 2px;
+  }
+  .app-nav::-webkit-scrollbar { display: none; }
+  .app-nav-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .auth-card {
+    width: min(420px, 100%);
+    padding: 28px 22px 24px;
   }
 }
 @media (max-width: 640px) {
@@ -1930,7 +2052,7 @@ svg.graph-lines {
   .graph-container,
   .chaos-layout,
   .logs-layout {
-    padding: 20px;
+    padding: 20px 16px;
   }
   .rf-wrapper {
     height: 320px;
@@ -1941,6 +2063,18 @@ svg.graph-lines {
   .btn-primary,
   .btn-ghost {
     width: 100%;
+  }
+  .auth-screen {
+    padding: 20px 12px;
+    align-items: flex-start;
+    padding-top: 48px;
+  }
+  .auth-card {
+    width: 100%;
+    padding: 24px 18px 20px;
+  }
+  .auth-title {
+    font-size: 28px;
   }
 }
 /* Entire ReactFlow surface */
@@ -2021,20 +2155,20 @@ svg.graph-lines {
 }
 
 .auth-card {
-  width: min(440px, 100%);
-  padding: 36px 32px 28px;
+  width: min(460px, 100%);
+  padding: 40px 36px 32px;
 }
 
 .auth-title {
-  font-size: 32px;
-  font-weight: 700;
+  font-size: 36px;
+  font-weight: 800;
   letter-spacing: -0.03em;
   margin-bottom: 8px;
 }
 
 .auth-caption {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.6;
   color: var(--pewter);
   margin-bottom: 22px;
@@ -2051,7 +2185,7 @@ svg.graph-lines {
   flex-direction: column;
   gap: 6px;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ash);
@@ -2059,7 +2193,8 @@ svg.graph-lines {
 
 .auth-field input {
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
   color: var(--chalk);
@@ -2068,11 +2203,42 @@ svg.graph-lines {
   border-radius: 8px;
   padding: 12px 14px;
   outline: none;
+  width: 100%;
 }
 
 .auth-field input:focus {
   border-color: var(--border3);
   background: rgba(255, 255, 255, 0.05);
+}
+
+/* password wrapper — positions the eye button inside the input */
+.auth-password-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-password-wrap input {
+  padding-right: 44px;
+}
+
+.auth-eye-btn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ash);
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.2s;
+  line-height: 0;
+}
+
+.auth-eye-btn:hover {
+  color: var(--chalk);
 }
 
 .auth-submit {
@@ -2086,7 +2252,8 @@ svg.graph-lines {
   border: none;
   color: var(--silver);
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 500;
   letter-spacing: 0.04em;
   cursor: pointer;
   padding: 0;
@@ -2098,7 +2265,7 @@ svg.graph-lines {
 
 .auth-message {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   letter-spacing: 0;
   text-transform: none;
@@ -2121,7 +2288,7 @@ svg.graph-lines {
 
 .auth-loading {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.08em;
   color: var(--pewter);
 }
@@ -2173,7 +2340,7 @@ svg.graph-lines {
   }
   .app-back-btn {
     padding: 6px 9px;
-    font-size: 9px;
+    font-size: 10px;
   }
   .app-back-placeholder {
     width: 58px;
@@ -2189,8 +2356,25 @@ svg.graph-lines {
     margin-right: auto;
   }
   .theme-toggle {
-    padding: 6px 8px;
-    font-size: 10px;
+    padding: 0;
+  }
+  .tt-track {
+    width: 60px;
+    height: 30px;
+    padding: 0 4px;
+  }
+  .tt-thumb {
+    width: 24px;
+    height: 22px;
+    top: 3px;
+    left: 3px;
+  }
+  [aria-pressed="true"] .tt-thumb {
+    transform: translateX(27px);
+  }
+  .tt-icon {
+    width: 20px;
+    height: 20px;
   }
   .theme-toggle--floating {
     top: 12px;
@@ -2227,79 +2411,243 @@ svg.graph-lines {
   .guide-compare-label,
   .guide-compare-them,
   .guide-compare-us {
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 
-:root[data-theme="light"] #bg-grid::before {
-  background-image: linear-gradient(rgba(26, 42, 32, 0.075) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(26, 42, 32, 0.065) 1px, transparent 1px);
+/* ── Splash: light mode parity ── */
+/* Logo underline — use dark ink instead of white */
+:root[data-theme="light"] .s-logo::after {
+  background: linear-gradient(90deg, transparent, rgba(30, 30, 28, 0.5), transparent);
 }
+/* "resilience" highlight box */
+:root[data-theme="light"] .s-caption .hl::before {
+  border-color: rgba(30, 30, 28, 0.14);
+  background: rgba(30, 30, 28, 0.04);
+}
+/* Enter platform button — match dark mode pill style */
+:root[data-theme="light"] .s-enter {
+  border-color: rgba(30, 30, 28, 0.18);
+  background: rgba(30, 30, 28, 0.06);
+  color: var(--pewter);
+}
+:root[data-theme="light"] .s-enter:hover {
+  background: rgba(30, 30, 28, 0.1);
+  color: var(--chalk);
+  border-color: rgba(30, 30, 28, 0.28);
+}
+:root[data-theme="light"] #bg-grid::before {
+  background-image: linear-gradient(rgba(26, 42, 32, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 42, 32, 0.075) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 78% 68% at 50% 50%, black 25%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 78% 68% at 50% 50%, black 25%, transparent 100%);
+}
+:root[data-theme="light"] #bg-grid::after {
+  background: radial-gradient(ellipse 55% 55% at 50% 50%, transparent 35%, var(--bg) 100%);
+}
+/* ─────────────────────────────────────────────
+   LIGHT MODE OVERRIDES
+   Mirror the dark-mode depth using warm neutrals
+   ───────────────────────────────────────────── */
+
+/* Header */
 :root[data-theme="light"] .app-header {
   border-color: var(--border);
+  background: var(--header-bg);
 }
+
+/* Glass cards — white with real backdrop blur, dark-mode-level depth */
 :root[data-theme="light"] .glass,
 :root[data-theme="light"] .glass-deep,
 :root[data-theme="light"] .splash-glass,
 :root[data-theme="light"] .node-box,
 :root[data-theme="light"] .rf-node {
-  background: var(--panel-bg);
-  border-color: var(--panel-border);
-  box-shadow: 0 4px 18px rgba(26, 42, 32, 0.07);
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(30, 30, 28, 0.1);
+  box-shadow: 0 4px 24px rgba(30, 30, 28, 0.09), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
 }
+
+/* Top edge shimmer — warm tint instead of white */
 :root[data-theme="light"] .glass::before,
 :root[data-theme="light"] .glass-deep::before {
-  background: linear-gradient(90deg, transparent, rgba(26, 42, 32, 0.1), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
 }
+
+/* Nav / interactive surfaces */
 :root[data-theme="light"] .app-back-btn,
 :root[data-theme="light"] .app-nav-link:hover:not(:disabled),
 :root[data-theme="light"] .app-nav-link.active,
 :root[data-theme="light"] .chaos-main-btn,
 :root[data-theme="light"] .graph-legend--bar,
 :root[data-theme="light"] .guide-compare-row {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.55);
 }
+
+/* Upload area */
 :root[data-theme="light"] .upload-area {
-  background: rgba(26, 42, 32, 0.018);
-  border-color: rgba(26, 42, 32, 0.22);
+  background: rgba(30, 30, 28, 0.02);
+  border-color: rgba(30, 30, 28, 0.18);
 }
 :root[data-theme="light"] .upload-area.uploading {
-  background: rgba(16, 185, 129, 0.07);
-  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(5, 150, 105, 0.06);
+  border-color: rgba(5, 150, 105, 0.4);
 }
+
+/* Auth inputs */
 :root[data-theme="light"] .auth-field input {
-  background: var(--input-bg);
+  background: rgba(255, 255, 255, 0.7);
   border-color: var(--border2);
+  color: var(--chalk);
 }
 :root[data-theme="light"] .auth-field input:focus {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.92);
+  border-color: var(--border3);
 }
+
+/* Auth eye button */
+:root[data-theme="light"] .auth-eye-btn {
+  color: var(--pewter);
+}
+:root[data-theme="light"] .auth-eye-btn:hover {
+  color: var(--chalk);
+}
+
+/* Primary button */
 :root[data-theme="light"] .btn-primary {
-  box-shadow: 0 0 0 1px rgba(26, 42, 32, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  background: var(--chalk);
+  color: #f0eeea;
+  box-shadow: 0 0 0 1px rgba(30, 30, 28, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 :root[data-theme="light"] .btn-primary:hover {
-  background: #27342c;
-  color: #f5f0eb;
-  box-shadow: 0 8px 24px rgba(26, 42, 32, 0.16);
+  background: #2a2825;
+  color: #f0eeea;
+  box-shadow: 0 8px 24px rgba(30, 30, 28, 0.18);
 }
+
+/* Ghost button */
+:root[data-theme="light"] .btn-ghost {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: var(--border2);
+  color: var(--pewter);
+}
+:root[data-theme="light"] .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: var(--border3);
+  color: var(--chalk);
+}
+
+/* Grad text — no glow on light */
 :root[data-theme="light"] .grad-text {
   text-shadow: none;
 }
-:root[data-theme="light"] .env-parser,
+
+/* Code / env / react-flow surfaces */
+:root[data-theme="light"] .env-parser {
+  background: rgba(245, 244, 241, 0.9);
+  border-color: var(--border);
+}
 :root[data-theme="light"] .rf-wrapper .react-flow,
 :root[data-theme="light"] .react-flow__controls,
 :root[data-theme="light"] .react-flow__minimap {
-  background: rgba(245, 247, 244, 0.94) !important;
+  background: rgba(240, 238, 234, 0.95) !important;
 }
 :root[data-theme="light"] .react-flow__controls-button {
   border-bottom-color: var(--border) !important;
 }
 :root[data-theme="light"] .react-flow__controls-button:hover {
-  background: rgba(26, 42, 32, 0.08) !important;
+  background: rgba(30, 30, 28, 0.07) !important;
 }
 :root[data-theme="light"] .react-flow__minimap-mask {
-  fill: rgba(26, 42, 32, 0.08) !important;
+  fill: rgba(30, 30, 28, 0.07) !important;
 }
+:root[data-theme="light"] .react-flow__controls-button svg {
+  fill: var(--silver) !important;
+}
+
+/* Graph lines */
 :root[data-theme="light"] .graph-line {
-  stroke: rgba(26, 42, 32, 0.24);
+  stroke: rgba(30, 30, 28, 0.22);
+}
+
+/* RF node handles */
+:root[data-theme="light"] .rf-handle {
+  background: var(--ash) !important;
+}
+
+/* Log panel / report code blocks */
+:root[data-theme="light"] .log-panel-body,
+:root[data-theme="light"] .report-body {
+  color: var(--silver);
+}
+:root[data-theme="light"] .report-code,
+:root[data-theme="light"] .report-log {
+  background: rgba(30, 30, 28, 0.04);
+  border-color: var(--border);
+  color: var(--bone);
+}
+
+/* Theme toggle pill track in light mode */
+:root[data-theme="light"] .tt-track {
+  background: rgba(30, 30, 28, 0.07);
+  border-color: var(--border2);
+}
+:root[data-theme="light"] .tt-thumb {
+  background: var(--chalk);
+  box-shadow: 0 2px 8px rgba(30, 30, 28, 0.25);
+}
+
+/* Splash grid orbs */
+:root[data-theme="light"] .s-orb-1 {
+  background: rgba(30, 30, 28, 0.03);
+}
+:root[data-theme="light"] .s-orb-2 {
+  background: rgba(30, 30, 28, 0.04);
+}
+
+/* Splash grid lines — override hardcoded white with dark ink */
+:root[data-theme="light"] .s-grid::before {
+  background-image: linear-gradient(rgba(30, 30, 28, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 30, 28, 0.07) 1px, transparent 1px);
+}
+
+/* Splash glass card — frosted white, same depth as dark mode */
+:root[data-theme="light"] .splash-glass {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: rgba(30, 30, 28, 0.1);
+  box-shadow: 0 8px 40px rgba(30, 30, 28, 0.1), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+}
+
+/* Splash glass top shimmer — warm instead of white */
+:root[data-theme="light"] .splash-glass::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.75), transparent);
+}
+
+/* Guide features / compare rows */
+:root[data-theme="light"] .guide-feature {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(30, 30, 28, 0.08);
+}
+:root[data-theme="light"] .guide-feature:hover {
+  border-color: rgba(30, 30, 28, 0.14);
+}
+
+/* Dep rows */
+:root[data-theme="light"] .dep-row {
+  border-bottom-color: rgba(30, 30, 28, 0.06);
+}
+
+/* Report table */
+:root[data-theme="light"] .report-table td {
+  border-bottom-color: rgba(30, 30, 28, 0.07);
+}
+
+/* Noise / scanlines — keep very subtle in light */
+:root[data-theme="light"] .scanlines {
+  opacity: 0.012;
+}
+:root[data-theme="light"] .noise {
+  opacity: 0.012;
 }

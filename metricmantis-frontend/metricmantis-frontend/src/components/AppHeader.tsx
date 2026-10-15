@@ -12,7 +12,7 @@ const LABELS: Record<WorkflowPage, string> = {
   report: "Report",
 };
 
-export function AppHeader() {
+export function AppHeader({ onLogoClick }: { onLogoClick?: () => void }) {
   const { page, setPage, openGuide, goBack, analyzed } = useSystem();
   const { logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -38,9 +38,14 @@ export function AppHeader() {
         ) : (
           <span className="app-back-placeholder" />
         )}
-        <div className="app-logo">
+        <button
+          type="button"
+          className="app-logo"
+          onClick={onLogoClick}
+          aria-label="MetricMantis — back to home"
+        >
           Metric<span>Mantis</span>
-        </div>
+        </button>
       </div>
       <nav className="app-nav" aria-label="Main">
         {PAGE_ORDER.map((p) => {
