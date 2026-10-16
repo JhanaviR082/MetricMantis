@@ -1,8 +1,18 @@
 "use client";
-import { uploadYaml } from "@/lib/api";
 import { useRef, useState } from "react";
 import { PageActions } from "@/components/PageActions";
 import { useSystem } from "@/context/SystemContext";
+import type { SandboxRecord } from "@/lib/api";
+import { runtimeDisplay } from "@/lib/sandboxRuntime";
+
+function sandboxStatusText(sandbox: SandboxRecord) {
+  if (sandbox.status === "running") return "Status: running. The approved sample is healthy.";
+  if (sandbox.status === "starting") return "Status: starting. Waiting for the approved sample.";
+  if (sandbox.status === "stopping") return "Status: stopping. Removing the approved sample.";
+  if (sandbox.status === "stopped") return "Status: stopped. Sandbox containers were removed.";
+  if (sandbox.status === "failed") return `Status: failed. ${sandbox.error || "The sandbox did not finish cleanly."}`;
+  return "Status: created. Containers have not been started.";
+}
 
 export function UploadPage() {
  const {
@@ -10,10 +20,19 @@ export function UploadPage() {
   uploadSuccess,
   analyzed,
   analyzing,
+  composeText,
   services,
   edges,
   uploadCompose,
   analyzeSystem,
+  sandbox,
+  sandboxRuntime,
+  sandboxObserved,
+  sandboxBusy,
+  sandboxAction,
+  sandboxError,
+  runSandbox,
+  stopSandbox,
   setPage,
 } = useSystem();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -110,23 +129,67 @@ const handleFile = async (file: File | null) => {
             >
               {analyzing ? "Analyzing…" : "Analyze System"}
             </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={runSandbox}
+              disabled={sandboxBusy || !composeText || sandbox?.status === "running" || sandbox?.status === "starting" || sandbox?.status === "stopping"}
+            >
+              {sandboxAction === "run" ? "Starting sandbox…" : "Run sandbox"}
+            </button>
+            <button
+              type="button"
+              className="chaos-btn"
+              onClick={stopSandbox}
+              disabled={sandboxBusy || !sandbox || sandbox.status === "stopped"}
+            >
+              {sandboxAction === "stop" ? "Stopping sandbox…" : "Stop sandbox"}
+            </button>
           </div>
         )}
+        {uploadSuccess && (
+          <p className="page-desc">
+            Run sandbox starts the server-approved sample. The uploaded Compose file is not executed.
+          </p>
+        )}
+
+        {sandbox && (
+          <div className="upload-success glass">
+            <div>
+              <strong>{sandbox.projectName}</strong>
+              <span className="upload-success-sub">
+                {sandboxStatusText(sandbox)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {sandboxError && <p className="page-error">{sandboxError}</p>}
 
         {analyzed && services.length > 0 && (
           <div className="analysis-results glass">
             <h3>Dependencies &amp; health</h3>
             <p className="analysis-sub">
-              All services start healthy until chaos is injected.
+              {sandboxObserved
+                ? "Docker status is inspected separately. The status beside each name is still the simulation."
+                : "These statuses are simulated. They are not Docker measurements."}
             </p>
             <div className="services-list">
               {services.map((s) => (
                 <div key={s.id} className="service-row glass-deep">
                   <span
-                    className={`service-dot${s.status !== "healthy" ? " down" : ""}`}
+                    className={`service-dot${s.status === "healthy" ? "" : ` ${s.status}`}`}
                   />
                   <span className="service-name">{s.name}</span>
-                  <span className="service-status">{s.status}</span>
+                  <span className="service-status">Simulated: {s.status}</span>
+                  {sandboxObserved && (
+                    <span className="service-status">
+                      Docker: {(() => {
+                        const observed = sandboxRuntime?.services.find((service) => service.service === s.name);
+                        return observed ? runtimeDisplay(observed) : "unknown";
+                      })()}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -138,7 +201,7 @@ const handleFile = async (file: File | null) => {
                     <span className="dep-from">{e.from}</span>
                     <span className="dep-arrow">→</span>
                     <span className="dep-to">{e.to}</span>
-                    <span className="dep-health check-pass">healthy</span>
+                    <span className="dep-health check-pass">simulated</span>
                   </div>
                 ))}
               </div>

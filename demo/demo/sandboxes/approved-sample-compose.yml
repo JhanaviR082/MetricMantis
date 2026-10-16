@@ -1,0 +1,76 @@
+# Approved MetricMantis sample. The server starts this file only.
+# The uploaded Compose YAML is never passed to Docker.
+#
+# web-app proxies /health to api. api answers only after SELECT 1 succeeds on db.
+# A container is not ready until Docker reports health `healthy`.
+# No host ports, bind mounts, fixed container names, or extra privileges.
+# The database password is a fixed sample value for this server-owned file.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sample
+      POSTGRES_PASSWORD: sample-sandbox
+      POSTGRES_DB: sample
+    tmpfs:
+      - /var/lib/postgresql/data:mode=0777,size=134217728
+    mem_limit: 256m
+    cpus: 0.50
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sample -d sample"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  api:
+    build:
+      context: ./sample/api
+    image: metricmantis-sandbox-api:approved
+    environment:
+      DB_HOST: db
+      DB_USER: sample
+      DB_PASSWORD: sample-sandbox
+      DB_NAME: sample
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 128m
+    cpus: 0.50
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(async (response) => { const body = await response.text(); if (!response.ok || !body.includes('\"db\":\"ok\"')) process.exit(1); }).catch(() => process.exit(1))"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+
+  web-app:
+    build:
+      context: ./sample/web
+    image: metricmantis-sandbox-web:approved
+    depends_on:
+      api:
+        condition: service_healthy
+    mem_limit: 64m
+    cpus: 0.50
+    pids_limit: 64
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/health | grep -q '\"db\":\"ok\"'"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+
+  # Started only for a measured experiment. Default sandbox startup does not enable this profile.
+  # It joins the project network and is removed by this project's compose down.
+  measurer:
+    profiles: ["measure"]
+    build:
+      context: ./sample/measurer
+    image: metricmantis-sandbox-measurer:approved
+    init: true
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 32

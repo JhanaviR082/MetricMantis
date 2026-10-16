@@ -2,7 +2,7 @@ import type { DependencyEdge, ParsedService } from "@/lib/composeParser";
 import { getDependencyChain } from "@/lib/graphLayout";
 
 export interface ChaosEvent {
-  type: "stop" | "restart";
+  type: "stop" | "restart" | "latency" | "cpu" | "packet_loss";
   target?: string;
   command: string;
   at: string;
@@ -252,11 +252,21 @@ if (isDbLike(s) && (s.volumes?.length ?? 0) === 0) bullets.push(`↳ ${s.name} h
   };
 }
 
+const CONTROLLED_FAULTS = new Set<ChaosEvent["type"]>(["latency", "cpu", "packet_loss"]);
+
+function faultName(type: ChaosEvent["type"]): string {
+  if (type === "latency") return "Latency";
+  if (type === "cpu") return "CPU stress";
+  if (type === "packet_loss") return "Packet loss";
+  return type;
+}
+
 function buildChaosSection(services: ParsedService[], edges: DependencyEdge[], chaosEvents: ChaosEvent[]): ReportSection {
   const stopEvents = chaosEvents.filter((e) => e.type === "stop");
+  const faultEvents = chaosEvents.filter((e) => CONTROLLED_FAULTS.has(e.type));
   const restartEvents = chaosEvents.filter((e) => e.type === "restart");
 
-  if (stopEvents.length === 0) {
+  if (stopEvents.length === 0 && faultEvents.length === 0) {
     return {
       id: "chaos",
       number: "4",
@@ -268,6 +278,17 @@ function buildChaosSection(services: ParsedService[], edges: DependencyEdge[], c
 
   const dependants = buildDependantsMap(edges);
   const bullets: string[] = [];
+
+  for (const ev of faultEvents) {
+    const target = ev.target ?? "unknown";
+    const effect =
+      ev.type === "cpu"
+        ? "Only the target was degraded."
+        : "Target and direct dependents were degraded. No service was marked down.";
+    bullets.push(
+      `${faultName(ev.type)} on ${target} at ${new Date(ev.at).toLocaleTimeString()}. ${effect}`,
+    );
+  }
 
   for (const ev of stopEvents) {
     const target = ev.target ?? "unknown";
@@ -282,12 +303,13 @@ function buildChaosSection(services: ParsedService[], edges: DependencyEdge[], c
   }
 
   const lastStop = stopEvents[stopEvents.length - 1];
+  const injectionCount = stopEvents.length + faultEvents.length;
   return {
     id: "chaos",
     number: "4",
     title: "Chaos Experiment Summary",
     paragraphs: [
-      `${stopEvents.length} failure injection${stopEvents.length === 1 ? "" : "s"}, ${restartEvents.length} recovery event${restartEvents.length === 1 ? "" : "s"}.`,
+      `${injectionCount} failure injection${injectionCount === 1 ? "" : "s"}, ${restartEvents.length} recovery event${restartEvents.length === 1 ? "" : "s"}.`,
     ],
     code: lastStop?.command,
     bullets,
@@ -298,8 +320,9 @@ function buildPropagation(services: ParsedService[], chaosEvents: ChaosEvent[]):
   const down = services.filter((s) => s.status === "down");
   const degraded = services.filter((s) => s.status === "degraded");
   const lastStop = [...chaosEvents].reverse().find((e) => e.type === "stop");
+  const lastFault = [...chaosEvents].reverse().find((e) => CONTROLLED_FAULTS.has(e.type));
 
-  if (!lastStop && down.length === 0 && degraded.length === 0) {
+  if (!lastStop && !lastFault && down.length === 0 && degraded.length === 0) {
     return {
       id: "propagation",
       number: "5",
@@ -308,12 +331,17 @@ function buildPropagation(services: ParsedService[], chaosEvents: ChaosEvent[]):
     };
   }
 
+  const faultBullet = lastFault
+    ? `${faultName(lastFault.type)} injected on ${lastFault.target ?? "unknown"}.`
+    : null;
+
   return {
     id: "propagation",
     number: "5",
     title: "Failure Propagation Analysis",
     paragraphs: [`Current state: ${down.length} service${down.length === 1 ? "" : "s"} down, ${degraded.length} degraded.`],
     bullets: [
+      ...(faultBullet ? [faultBullet] : []),
       ...down.map((s) => `${s.name} — STOPPED. ${isDbLike(s) ? "Data writes halted." : isWebLike(s) ? "User traffic blocked." : "Service unavailable."}`),
       ...degraded.map((s) => `${s.name} — DEGRADED. ${isApiLike(s) ? "API endpoints erroring." : "Functionality partially impaired."}`),
     ],
@@ -326,7 +354,6 @@ function buildPropagation(services: ParsedService[], chaosEvents: ChaosEvent[]):
 function buildRecovery(
   services: ParsedService[],
   chaosEvents: ChaosEvent[],
-  restartPolicies: Record<string, string | undefined>,
 ): ReportSection {
   const withPolicy = services.filter((s) => s.restart && s.restart !== "no");
   const withoutPolicy = services.filter((s) => !s.restart || s.restart === "no");
@@ -470,13 +497,14 @@ export function buildStructuredReport(
   restartPolicies: Record<string, string | undefined>,
 ): { sections: ReportSection[]; scores: ResilienceScores } {
   const scores = computeScores(services, edges, chaosEvents);
+  void restartPolicies;
   const sections: ReportSection[] = [
     buildOverview(services, edges),
     buildGraphAnalysis(services, edges),
     buildSpof(services, edges),
     buildChaosSection(services, edges, chaosEvents),
     buildPropagation(services, chaosEvents),
-    buildRecovery(services, chaosEvents, restartPolicies),
+    buildRecovery(services, chaosEvents),
     buildScores(scores),
     buildRisks(services, edges),
     buildRecommendations(services, edges),

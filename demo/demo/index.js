@@ -18,6 +18,9 @@ const { initDatabase } = require("./database/database");
 const { sessionMiddleware } = require("./auth/session");
 const authRoutes = require("./routes/authRoutes");
 const requireAuth = require("./middleware/requireAuth");
+const experimentRoutes = require("./routes/experimentRoutes");
+const sandboxRoutes = require("./routes/sandboxRoutes");
+const { isSafeServiceName } = require("./experiments/dockerExecutor");
 
 initDatabase();
 
@@ -46,6 +49,8 @@ app.use(
 app.use(express.json());
 app.use(sessionMiddleware());
 app.use("/auth", authRoutes);
+app.use("/experiments", requireAuth, experimentRoutes);
+app.use("/sandboxes", requireAuth, sandboxRoutes);
 
 const upload = multer({ dest: "uploads/" });
 
@@ -54,16 +59,82 @@ let graphData = {
   edges: []
 };
 
+const GEMINI_MODEL = "gemini-3.6-flash";
+const GEMINI_TIMEOUT_MS = 25000;
+
 const ADVISOR_SYSTEM_PROMPT =
   "You are the Resilience Advisor for MetricMantis. Explain this resilience report in simple language for a student. " +
   "Use the report as the only source of truth — never invent services, metrics, findings, or scores not present in it. " +
+  "Compose analysis and browser chaos sections are simulations. A Measured experiment section contains observed numbers and a verdict already computed by the application. " +
+  "Never invent metrics, never treat a missing measurement as zero, and never change the verdict. " +
   "Explain jargon in plain terms inline (e.g. say what a SPOF is the first time you use it). " +
   "If something cannot be answered from the report, say so clearly. Keep answers short and clear.";
 
 function getGeminiClient() {
-  const key = process.env.GEMINI_API_KEY;
+  const key = (process.env.GEMINI_API_KEY || "").trim();
   if (!key) throw new Error("GEMINI_API_KEY is not set in environment");
   return new GoogleGenerativeAI(key);
+}
+
+function redactAdvisorError(err) {
+  return String(err?.message || err || "")
+    .replace(/AIza[\w-]+/g, "[redacted]")
+    .replace(/key=[^&\s]+/gi, "key=[redacted]")
+    .slice(0, 240);
+}
+
+async function generateAdvisorText(prompt) {
+  const genAI = getGeminiClient();
+  const model = genAI.getGenerativeModel(
+    { model: GEMINI_MODEL },
+    { timeout: GEMINI_TIMEOUT_MS },
+  );
+  const result = await model.generateContent(prompt);
+  const text = result?.response?.text?.();
+  if (!text || !String(text).trim()) {
+    const error = new Error("Empty advisor response");
+    error.code = "EMPTY_RESPONSE";
+    throw error;
+  }
+  return String(text).trim();
+}
+
+function sendAdvisorError(res, err, fallback) {
+  const status = Number(err?.status) || 0;
+  const raw = String(err?.message || "");
+  console.error("Advisor request failed:", status || err?.code || "error", redactAdvisorError(err));
+  if (status === 429 || /quota|rate limit|resource exhausted/i.test(raw)) {
+    return res.status(429).json({ error: "Rate limit reached. Please wait a moment and try again." });
+  }
+  if (status === 503 || /high demand|unavailable|overloaded/i.test(raw)) {
+    return res.status(503).json({ error: "Gemini is busy right now. Please try again in a moment." });
+  }
+  if (
+    status === 401 ||
+    status === 403 ||
+    /API key not valid|API_KEY_INVALID|permission denied/i.test(raw)
+  ) {
+    return res.status(502).json({
+      error: "Advisor could not authenticate with Gemini. Check GEMINI_API_KEY in the backend environment.",
+    });
+  }
+  if (/timed out|timeout|aborted/i.test(raw)) {
+    return res.status(504).json({ error: "Advisor timed out. Please try again." });
+  }
+  if (err?.code === "EMPTY_RESPONSE") {
+    return res.status(502).json({ error: "Advisor returned an empty response. Please try again." });
+  }
+  return res.status(500).json({ error: fallback });
+}
+
+function dependencyTargets(dependsOn) {
+  if (Array.isArray(dependsOn)) {
+    return dependsOn.filter((name) => typeof name === "string" && name);
+  }
+  if (dependsOn && typeof dependsOn === "object") {
+    return Object.keys(dependsOn);
+  }
+  return [];
 }
 
 // =============================
@@ -87,14 +158,12 @@ app.post("/upload", requireAuth, upload.single("file"), (req, res) => {
         status: "running"
       });
 
-      if (services[serviceName].depends_on) {
-        services[serviceName].depends_on.forEach((dep) => {
-          edges.push({
-            from: serviceName,
-            to: dep
-          });
+      dependencyTargets(services[serviceName]?.depends_on).forEach((dep) => {
+        edges.push({
+          from: serviceName,
+          to: dep
         });
-      }
+      });
     });
 
     graphData = { nodes, edges };
@@ -126,6 +195,9 @@ app.get("/graph", requireAuth, (req, res) => {
 // =============================
 app.post("/chaos/stop/:service", requireAuth, (req, res) => {
   const service = req.params.service;
+  if (!isSafeServiceName(service)) {
+    return res.status(400).json({ error: "Invalid service name." });
+  }
 
   exec(`docker stop ${service}`, (err, stdout, stderr) => {
 
@@ -155,6 +227,9 @@ app.post("/chaos/stop/:service", requireAuth, (req, res) => {
 // =============================
 app.post("/chaos/restart/:service", requireAuth, (req, res) => {
   const service = req.params.service;
+  if (!isSafeServiceName(service)) {
+    return res.status(400).json({ error: "Invalid service name." });
+  }
 
   exec(`docker start ${service}`, (err, stdout, stderr) => {
 
@@ -184,6 +259,9 @@ app.post("/chaos/restart/:service", requireAuth, (req, res) => {
 // =============================
 app.get("/logs/:service", requireAuth, (req, res) => {
   const service = req.params.service;
+  if (!isSafeServiceName(service)) {
+    return res.status(400).json({ error: "Invalid service name." });
+  }
 
   exec(`docker logs ${service}`, (err, stdout, stderr) => {
 
@@ -257,9 +335,8 @@ app.post("/api/advisor/summary", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Report data is required." });
   }
 
-  let genAI;
   try {
-    genAI = getGeminiClient();
+    getGeminiClient();
   } catch (e) {
     return res.status(500).json({ error: "Advisor is not configured. GEMINI_API_KEY is missing." });
   }
@@ -279,9 +356,7 @@ app.post("/api/advisor/summary", requireAuth, async (req, res) => {
     "The 4 questions must reference actual service names or findings from the report above.";
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    const text = await generateAdvisorText(prompt);
 
     // Strip markdown code fences if the model wraps its output
     const cleaned = text.replace(/^```(?:json)?\n?/i, "").replace(/\n?```$/i, "").trim();
@@ -303,11 +378,7 @@ app.post("/api/advisor/summary", requireAuth, async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Advisor summary error:", err);
-    if (err.status === 429 || (err.message && err.message.includes("quota"))) {
-      return res.status(429).json({ error: "Rate limit reached. Please wait a moment and try again." });
-    }
-    res.status(500).json({ error: "Advisor could not complete the analysis. Please try again." });
+    return sendAdvisorError(res, err, "Advisor could not complete the analysis. Please try again.");
   }
 });
 
@@ -326,9 +397,8 @@ app.post("/api/advisor/chat", requireAuth, async (req, res) => {
     return res.status(400).json({ error: "Report data is required." });
   }
 
-  let genAI;
   try {
-    genAI = getGeminiClient();
+    getGeminiClient();
   } catch (e) {
     return res.status(500).json({ error: "Advisor is not configured. GEMINI_API_KEY is missing." });
   }
@@ -354,22 +424,52 @@ app.post("/api/advisor/chat", requireAuth, async (req, res) => {
     "\n\nAdvisor (answer concisely in plain language, referencing only the report above):";
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-3.6-flash" });
-    const result = await model.generateContent(prompt);
-    const answer = result.response.text().trim();
-
+    const answer = await generateAdvisorText(prompt);
     res.json({ answer });
-
   } catch (err) {
-    console.error("Advisor chat error:", err);
-    if (err.status === 429 || (err.message && err.message.includes("quota"))) {
-      return res.status(429).json({ error: "Rate limit reached. Please wait a moment and try again." });
-    }
-    res.status(500).json({ error: "Advisor could not answer right now. Please try again." });
+    return sendAdvisorError(res, err, "Advisor could not answer right now. Please try again.");
   }
 });
 
 
-app.listen(3001, () => {
-  console.log("MetricMantis backend running on 3001");
-});
+const { createDockerExecutor, chaosStatusFromEnv } = require("./experiments/dockerExecutor");
+const { recoverFaultLease } = require("./experiments/faultLease");
+const { listByStatus, finishExperiment } = require("./database/experimentRepository");
+
+const port = Number(process.env.PORT) || 3001;
+recoverFaultLease(createDockerExecutor())
+  .catch(() => {
+    console.error("Fault cleanup after restart did not finish.");
+  })
+  .finally(() => {
+    for (const experiment of listByStatus("RUNNING")) {
+      finishExperiment(experiment.id, experiment.userId, {
+        status: "ERROR",
+        verdict: "ERROR",
+        cleanupStatus: "failed",
+        error: "The API restarted before the experiment finished. Fault cleanup was attempted.",
+        finishedAt: new Date().toISOString(),
+        evidence: experiment.evidence || {
+          mode: experiment.mode,
+          provenance: "observed",
+          limitations: ["The API restarted before the experiment finished."],
+          assertions: [],
+          measurementErrors: [],
+        },
+      });
+    }
+    const server = app.listen(port, () => {
+      const status = chaosStatusFromEnv(process.env);
+      const allowlist = status.allowlist.length ? status.allowlist.join(", ") : "none";
+      console.log(`MetricMantis backend running on ${port}`);
+      console.log(`Real chaos is ${status.chaosEnabled ? "on" : "off"}. Allowlist: ${allowlist}.`);
+    });
+    server.on("error", (error) => {
+      if (error.code === "EADDRINUSE") {
+        console.error(`Port ${port} is already in use. This process did not replace the existing listener.`);
+        process.exit(1);
+      }
+      console.error("The API could not listen.");
+      process.exit(1);
+    });
+  });
