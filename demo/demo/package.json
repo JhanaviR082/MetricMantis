@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node scripts/startApi.js normal",
+    "dev:chaos": "node scripts/startApi.js chaos",
+    "test": "node --test api.integration.test.js experiments/metrics.test.js experiments/assertions.test.js experiments/probeTarget.test.js experiments/experimentService.test.js experiments/sandboxTarget.test.js experiments/sandboxProbe.test.js experiments/faults.test.js experiments/localChaos.test.js scripts/apiListener.test.js sandboxes/sandbox.test.js"
   },
   "keywords": [],
   "author": "",

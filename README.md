@@ -137,7 +137,15 @@ Edit `.env` and set `SESSION_SECRET` to a long random string. The process exits 
 npm start
 ```
 
-It listens on [http://localhost:3001](http://localhost:3001).
+It listens on [http://localhost:3001](http://localhost:3001). Real chaos stays off. If that port is already this project's chaos-enabled API, `npm start` exits and leaves that process running.
+
+For a local chaos-testing session, stop is not required first:
+
+```bash
+npm run dev:chaos
+```
+
+That starts the API with chaos enabled for the approved services `web-app`, `api`, and `db`. If port 3001 is held by this project's API and chaos is off, only that process is stopped and replaced. A listener that is not `node index.js` in `demo/demo` is left alone, and the command exits. Sign in again after the API process changes. The Chaos page reads `GET /experiments/capabilities` from `NEXT_PUBLIC_API_URL` and shows that response.
 
 ### Authentication
 
@@ -230,6 +238,9 @@ docker compose down
 | `SESSION_SECRET` | `demo/demo/.env` | Signs the session cookie. Required. |
 | `FRONTEND_URL` | `demo/demo/.env` | CORS origin allowed to send cookies. Defaults to `http://localhost:3000`. |
 | `GEMINI_API_KEY` | `demo/demo/.env` | Resilience Advisor model calls. Optional. |
+| `METRICMANTIS_PROBE_ALLOWLIST` | `demo/demo/.env` | Hosts a measured experiment may probe. Defaults to `127.0.0.1,localhost`. Ports 3000 and 3001 are always refused. |
+| `METRICMANTIS_CHAOS_ENABLED` | API process | `npm run dev:chaos` in `demo/demo` sets this to `true` for that process. `npm start` leaves it unset, so real faults stay off. |
+| `METRICMANTIS_CHAOS_ALLOWLIST` | API process | `npm run dev:chaos` sets this to the approved services `web-app,api,db`. The target must also be a verified container in the signed-in user's running sandbox. |
 | `NEXT_PUBLIC_API_URL` | `metricmantis-frontend/metricmantis-frontend/.env.local` | API base URL. Set to `http://localhost:3001`. |
 
 Do not commit `.env` or `.env.local`.
@@ -238,12 +249,12 @@ Do not commit `.env` or `.env.local`.
 
 These are not implemented:
 
-- Google OAuth / SSO alongside local username and password, using the same session after either method succeeds
 - Authorization on top of `requireAuth`, such as a later `requireRole` check
 - Permissions for who can run chaos experiments or read reports
 
 ## Notes
 
-- Chaos on the **Chaos** page is a browser simulation. It updates service status and records a `docker stop <service>` event for the report. It does not call Docker unless you use the Node API endpoints, which require a logged-in session.
-- The advisor sends a shortened report (scores, findings, bullets, and tables) and refuses to invent services or metrics that are not in that report.
+- The row controls on the **Chaos** page are a browser simulation. They do not call Docker.
+- **Measured experiments** on that page send HTTP probes and, only when enabled, Docker commands for an allowlisted container. Latency and packet loss are not applied on this host. See `docs/EXPERIMENTS.md`.
+- The advisor sends a shortened report (scores, findings, bullets, and tables). It must not invent measurements or change a computed verdict.
 - `index.html` at the repository root is a self-contained earlier version of the interface. The Next.js app is the current UI.

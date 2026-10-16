@@ -1,12 +1,42 @@
 "use client";
 
+import { useMemo } from "react";
 import { PageActions } from "@/components/PageActions";
 import { DependencyGraph } from "@/components/graph/DependencyGraph";
 import { useSystem } from "@/context/SystemContext";
 import { getDependencyChain } from "@/lib/graphLayout";
+import { observedServicesMissingFromGraph } from "@/lib/sandboxRuntime";
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="legend-item">
+      <div className="legend-dot" style={{ background: color }} />
+      {label}
+    </div>
+  );
+}
 
 export function GraphPage() {
-  const { analyzed, services, edges, setPage } = useSystem();
+  const {
+    analyzed,
+    services,
+    edges,
+    faultLabels,
+    sandbox,
+    sandboxRuntime,
+    sandboxRuntimeError,
+    sandboxObserved,
+    setPage,
+  } = useSystem();
+  const runtime = useMemo(() => {
+    const map: Record<string, NonNullable<typeof sandboxRuntime>["services"][number]> = {};
+    for (const service of sandboxRuntime?.services ?? []) map[service.service] = service;
+    return map;
+  }, [sandboxRuntime]);
+  const sandboxServices = observedServicesMissingFromGraph(
+    services.map((service) => service.id),
+    sandboxRuntime?.services,
+  );
 
   const chain = analyzed
     ? getDependencyChain(services, edges)
@@ -25,36 +55,23 @@ export function GraphPage() {
         </h1>
 
         <p className="page-desc">
-          Live view of service dependencies.
-          Colors update when you inject chaos.
+          Card outline, status dot, and the Simulation line follow the simulated failure and the services that depend on it. Docker and Health stay on the card and are not changed by the simulation. Edges are labeled Simulation.
         </p>
 
+        {sandboxObserved && (
+          <p className="page-desc">
+            {sandbox?.projectName ? `Sandbox ${sandbox.projectName}. ` : ""}
+            {sandboxRuntimeError || "Runtime status comes from container inspection."}
+            {sandboxServices.length > 0
+              ? ` Inspected service ${sandboxServices.map((service) => service.service).join(", ")} is shown beside the uploaded services.`
+              : ""}
+          </p>
+        )}
+
         <div className="graph-legend graph-legend--bar">
-
-          <div className="legend-item">
-            <div
-              className="legend-dot"
-              style={{ background: "var(--ok)" }}
-            />
-            Healthy
-          </div>
-
-          <div className="legend-item">
-            <div
-              className="legend-dot"
-              style={{ background: "var(--warn)" }}
-            />
-            Degraded
-          </div>
-
-          <div className="legend-item">
-            <div
-              className="legend-dot"
-              style={{ background: "var(--danger)" }}
-            />
-            Down
-          </div>
-
+          <Legend color="var(--ok)" label="Healthy" />
+          <Legend color="var(--warn)" label="Affected / Degraded" />
+          <Legend color="var(--danger)" label="Failed" />
         </div>
 
         {!analyzed ? (
@@ -92,6 +109,11 @@ export function GraphPage() {
             <DependencyGraph
               nodes={services}
               edges={edges}
+              faultLabels={faultLabels}
+              runtime={runtime}
+              sandboxObserved={sandboxObserved}
+              runtimeKnown={Boolean(sandboxRuntime) && !sandboxRuntimeError}
+              inspectionFailed={Boolean(sandboxRuntimeError)}
             />
 
           </>
