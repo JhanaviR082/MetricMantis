@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSystem } from "@/context/SystemContext";
 import { buildStructuredReport } from "@/lib/reportBuilder";
+import { buildMeasuredSection } from "@/lib/experimentReport";
+import { downloadReportPdf } from "@/lib/reportPdf";
 import { ResilienceAdvisor } from "@/components/ResilienceAdvisor";
-import type { AdvisorReport } from "@/lib/api";
+import { listExperiments, type AdvisorReport, type ExperimentRecord } from "@/lib/api";
 
 function scoreColor(val: number): string {
   if (val >= 8) return "var(--ok)";
@@ -17,13 +19,32 @@ function parseScore(scoreStr: string): number {
 }
 
 export function ReportPage() {
-  const { services, edges, chaosEvents, restartPolicies, findings, setPage } =
-    useSystem();
+  const {
+    services,
+    edges,
+    chaosEvents,
+    restartPolicies,
+    findings,
+    composeFileName,
+    setPage,
+  } = useSystem();
+  const [downloading, setDownloading] = useState(false);
+  const [latestExperiment, setLatestExperiment] = useState<ExperimentRecord | null>(null);
 
-  const { sections, scores } = useMemo(
-    () => buildStructuredReport(services, edges, chaosEvents, restartPolicies),
-    [services, edges, chaosEvents, restartPolicies],
-  );
+  useEffect(() => {
+    listExperiments(1)
+      .then((body) => setLatestExperiment(body.experiments[0] || null))
+      .catch(() => setLatestExperiment(null));
+  }, []);
+
+  const { sections, scores } = useMemo(() => {
+    const report = buildStructuredReport(services, edges, chaosEvents, restartPolicies);
+    const measured = buildMeasuredSection(latestExperiment);
+    return {
+      scores: report.scores,
+      sections: measured ? [...report.sections, measured] : report.sections,
+    };
+  }, [services, edges, chaosEvents, restartPolicies, latestExperiment]);
 
   const criticalFindings = findings.filter((f) => f.severity === "critical");
   const warningFindings = findings.filter((f) => f.severity === "warning");
@@ -179,6 +200,27 @@ export function ReportPage() {
         </div>
 
         <div className="hero-actions" style={{ marginTop: 24 }}>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={downloading || services.length === 0}
+            onClick={() => {
+              setDownloading(true);
+              try {
+                downloadReportPdf({
+                  composeFileName,
+                  sections,
+                  scores,
+                  criticalCount: criticalFindings.length,
+                  warningCount: warningFindings.length,
+                });
+              } finally {
+                setDownloading(false);
+              }
+            }}
+          >
+            {downloading ? "Preparing PDF…" : "Download PDF"}
+          </button>
           <button
             type="button"
             className="btn-ghost"
