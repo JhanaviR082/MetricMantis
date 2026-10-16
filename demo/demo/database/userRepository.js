@@ -1,26 +1,22 @@
 const { getDatabase } = require("./database");
 
+const USER_COLUMNS = "id, username, email, password_hash, created_at";
+
 function findById(id) {
   return getDatabase()
-    .prepare(
-      "SELECT id, username, email, password_hash, created_at FROM users WHERE id = ?",
-    )
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE id = ?`)
     .get(id);
 }
 
 function findByUsername(username) {
   return getDatabase()
-    .prepare(
-      "SELECT id, username, email, password_hash, created_at FROM users WHERE username = ? COLLATE NOCASE",
-    )
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE username = ? COLLATE NOCASE`)
     .get(username);
 }
 
 function findByEmail(email) {
   return getDatabase()
-    .prepare(
-      "SELECT id, username, email, password_hash, created_at FROM users WHERE email = ? COLLATE NOCASE",
-    )
+    .prepare(`SELECT ${USER_COLUMNS} FROM users WHERE email = ? COLLATE NOCASE`)
     .get(email);
 }
 

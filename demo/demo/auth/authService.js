@@ -81,10 +81,10 @@ async function login(input) {
   const password = typeof input?.password === "string" ? input.password : "";
 
   const user = username ? userRepository.findByUsername(username) : null;
-  const hash = user ? user.password_hash : dummyPasswordHash;
-  const matches = await bcrypt.compare(password, hash);
+  const hash = user && user.password_hash ? user.password_hash : dummyPasswordHash;
+  const matches = await bcrypt.compare(password || " ", hash);
 
-  if (!user || !password || !matches) {
+  if (!user || !user.password_hash || !password || !matches) {
     throw new AuthError(INVALID_LOGIN, 401);
   }
 
