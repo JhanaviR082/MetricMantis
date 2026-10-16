@@ -1,6 +1,7 @@
 HELP.md
 .env
 data/
+uploads/
 node_modules/
 target/
 .mvn/wrapper/maven-wrapper.jar
