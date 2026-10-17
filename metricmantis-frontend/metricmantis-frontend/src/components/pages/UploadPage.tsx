@@ -17,6 +17,7 @@ function sandboxStatusText(sandbox: SandboxRecord) {
 export function UploadPage() {
  const {
   composeFileName,
+  composeFileSize,
   uploadSuccess,
   analyzed,
   analyzing,
@@ -112,7 +113,12 @@ const handleFile = async (file: File | null) => {
             <span className="upload-success-icon">✓</span>
             <div>
               <strong>{composeFileName}</strong> uploaded successfully
-              <span className="upload-success-sub">Ready to analyze</span>
+              <span className="upload-success-sub">
+                 {composeFileSize !== null
+                   ? `YAML file · ${(composeFileSize / 1024).toFixed(1)} KB`
+                   : "YAML file"}
+                 {" · Ready to analyze"}
+              </span>
             </div>
           </div>
         )}

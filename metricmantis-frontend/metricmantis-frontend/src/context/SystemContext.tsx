@@ -46,6 +46,7 @@ interface SystemContextValue {
   openGuide: () => void;
   goBack: () => void;
   composeFileName: string | null;
+  composeFileSize: number | null;
   uploadSuccess: boolean;
   analyzed: boolean;
   analyzing: boolean;
@@ -80,6 +81,7 @@ export function SystemProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState<AppPage>("upload");
   const [returnPage, setReturnPage] = useState<WorkflowPage>("upload");
   const [composeFileName, setComposeFileName] = useState<string | null>(null);
+  const [composeFileSize, setComposeFileSize] = useState<number | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [composeText, setComposeText] = useState<string | null>(null);
   const [analyzed, setAnalyzed] = useState(false);
@@ -159,6 +161,7 @@ export function SystemProvider({ children }: { children: ReactNode }) {
     const text = await file.text();
     setComposeText(text);
     setComposeFileName(file.name);
+    setComposeFileSize(file.size);
     setUploadSuccess(true);
     setAnalyzed(false);
     setServices([]);
@@ -352,6 +355,7 @@ export function SystemProvider({ children }: { children: ReactNode }) {
       openGuide,
       goBack,
       composeFileName,
+      composeFileSize,
       uploadSuccess,
       analyzed,
       analyzing,
@@ -382,6 +386,7 @@ export function SystemProvider({ children }: { children: ReactNode }) {
       openGuide,
       goBack,
       composeFileName,
+      composeFileSize,
       uploadSuccess,
       analyzed,
       analyzing,
