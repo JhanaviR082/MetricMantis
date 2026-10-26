@@ -35,3 +35,10 @@ build/
 
 ### VS Code ###
 .vscode/
+
+
+### Browser pass runtime artifacts ###
+# State file contains the live session cookie; results is run output.
+scripts/_browserPass.state.json
+scripts/_browserPass.results.json
+scripts/_mm.cookie
