@@ -3,16 +3,32 @@
 import { PageActions } from "@/components/PageActions";
 import { ExperimentWorkspace } from "@/components/pages/ExperimentWorkspace";
 import { useSystem } from "@/context/SystemContext";
+import { FAULT_LABEL } from "@/lib/chaosFaults";
 
 export function ChaosPage() {
   const {
     edges,
+    services,
+    faultLabels,
     setPage,
     sandbox,
     sandboxRuntime,
     sandboxRuntimeError,
   } = useSystem();
   const runtime = sandboxRuntime?.services ?? [];
+  const degradedServices = services
+    .filter((service) => service.status === "degraded")
+    .map((service) => ({
+      service,
+      unhealthyDependencies: edges.flatMap((edge) => {
+        if (edge.from !== service.id) return [];
+        const dependency = services.find((candidate) => candidate.id === edge.to);
+        return dependency &&
+          (dependency.status === "down" || dependency.status === "degraded")
+          ? [dependency]
+          : [];
+      }),
+    }));
 
   return (
     <main className="app-page">
@@ -46,6 +62,32 @@ export function ChaosPage() {
               </div>
             ))}
           </div>
+        </section>
+        <section className="glass chaos-runtime" aria-label="Simulated dependency impact">
+          <div className="chaos-section-title">Dependency simulation</div>
+          <p className="page-desc">
+            These explanations use simulated graph statuses, not measured container health.
+          </p>
+          {degradedServices.length === 0 ? (
+            <p className="page-desc">No services are currently DEGRADED in the dependency simulation.</p>
+          ) : (
+            <div className="chaos-runtime-list">
+              {degradedServices.map(({ service, unhealthyDependencies }) => (
+                <div key={service.id} className="chaos-runtime-row">
+                  <strong>{service.name}</strong>
+                  <span>
+                    {unhealthyDependencies.length > 0
+                      ? `Degraded because immediate dependencies ${unhealthyDependencies
+                          .map((dependency) => `${dependency.name} (${dependency.status.toUpperCase()})`)
+                          .join(", ")} are unhealthy.`
+                      : faultLabels[service.id]
+                        ? `Degraded by simulated ${FAULT_LABEL[faultLabels[service.id]]} fault; no immediate dependency is currently unhealthy.`
+                        : "No immediate dependency is currently DOWN or DEGRADED."}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
         <ExperimentWorkspace
           edges={edges}
