@@ -69,14 +69,25 @@ const handleFile = async (file: File | null) => {
   return (
     <main className="app-page">
       <div className="page-content">
-        <div className="slide-label">System ingest</div>
-        <h1 className="slide-title">
-          Upload <span className="grad-text">Docker Compose</span>
-        </h1>
-        <p className="page-desc">
-          Drop your <code>docker-compose.yml</code> to extract services and
-          dependencies.
-        </p>
+        {/* Title row: label + heading + desc on the left, mascot on the right */}
+        <div className="upload-title-row">
+          <div className="upload-title-text">
+            <div className="slide-label">System ingest</div>
+            <h1 className="slide-title">
+              Upload <span className="grad-text">Docker Compose</span>
+            </h1>
+            <p className="page-desc">
+              Drop your <code>docker-compose.yml</code> to extract services and
+              dependencies.
+            </p>
+          </div>
+          <img
+            src="/images/LittleChaosEngineer.png"
+            alt="Little Chaos Engineer mascot"
+            className="upload-mascot"
+            aria-hidden="true"
+          />
+        </div>
 
         <input
           ref={inputRef}

@@ -532,6 +532,30 @@ body {
   max-width: 800px;
 }
 
+/* Upload page — title row: text on the left, mascot on the right */
+.upload-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 0;
+}
+
+.upload-title-text {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* Upload page mascot — sits beside the title block */
+.upload-mascot {
+  flex: 0 0 auto;
+  width: clamp(110px, 13vw, 175px);
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  align-self: center;
+}
+
 .page-desc {
   font-family: var(--mono);
   font-size: 13px;
@@ -2452,6 +2476,13 @@ svg.graph-lines {
   }
   .app-page {
     padding: 24px 14px 36px;
+  }
+  .upload-mascot {
+    display: none;
+  }
+  .upload-title-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
   .slide-title {
     overflow-wrap: anywhere;

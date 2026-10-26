@@ -37,7 +37,7 @@ import {
   type SandboxRuntimeSnapshot,
 } from "@/lib/sandboxRuntime";
 
-export type WorkflowPage = "upload" | "graph" | "chaos" | "report";
+export type WorkflowPage = "upload" | "graph" | "chaos" | "dashboard" | "report";
 export type AppPage = WorkflowPage | "guide";
 
 interface SystemContextValue {
@@ -73,7 +73,7 @@ interface SystemContextValue {
   restartAll: () => void;
 }
 
-export const PAGE_ORDER: WorkflowPage[] = ["upload", "graph", "chaos", "report"];
+export const PAGE_ORDER: WorkflowPage[] = ["upload", "graph", "chaos", "dashboard", "report"];
 
 const SystemContext = createContext<SystemContextValue | null>(null);
 

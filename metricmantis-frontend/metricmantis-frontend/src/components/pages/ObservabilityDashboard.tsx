@@ -105,31 +105,27 @@ export function ObservabilityDashboard({
 
   return (
     <section className="glass mm-exp-card" aria-label="Observability Dashboard">
-      <div className="slide-label">Observability</div>
-      <h2 className="slide-title" style={{ fontSize: 28, margin: "6px 0 8px" }}>
-        Experiment <span className="grad-text">dashboard</span>
-      </h2>
-      {mode === "loading" && <p className="page-desc">Loading the latest saved experiment.</p>}
+      {mode === "loading" && <p className="page-desc" style={{ margin: "0 0 8px" }}>Loading the latest saved experiment.</p>}
       {mode === "empty" && (
-        <p className="page-desc">
+        <p className="page-desc" style={{ margin: "0 0 8px" }}>
           No experiment is loaded. Counts, latency, CPU, and cleanup stay blank until a run saves real samples.
         </p>
       )}
       {mode === "running" && (
-        <p className="page-desc">
+        <p className="page-desc" style={{ margin: "0 0 8px" }}>
           {partial
             ? "Partial phase data has been saved. The verdict is not final."
             : "The run is in progress. Measurements stay blank until the API saves a phase."}
         </p>
       )}
       {mode === "error" && (
-        <p className="page-desc" style={{ color: "var(--danger)" }}>
+        <p className="page-desc" style={{ margin: "0 0 8px", color: "var(--danger)" }}>
           {record?.error || "The experiment ended with an error."}
         </p>
       )}
       {current && mode !== "empty" && mode !== "loading" && (
         <>
-          <p className="page-desc">
+          <p className="page-desc" style={{ margin: "0 0 4px" }}>
             {current.mode} · {current.faultType} on {current.targetService}
             {" · "}
             <strong style={{ color: verdictColor(verdict) }}>{verdict}</strong>
@@ -139,7 +135,7 @@ export function ObservabilityDashboard({
                 ? " · predicted, not measured"
                 : " · not measured"}
           </p>
-          <p className="page-desc">
+          <p className="page-desc" style={{ margin: "0 0 16px" }}>
             {mode === "running"
               ? "Figures below are phase snapshots saved during the run, not a live capacity chart."
               : "Figures below are the final phase summary for this experiment."}
@@ -186,28 +182,28 @@ export function ObservabilityDashboard({
             }))}
           />
           {current.evidence?.cpuComparison?.summary && (
-            <p className="page-desc">{current.evidence.cpuComparison.summary}</p>
+            <p className="page-desc" style={{ margin: "6px 0 0" }}>{current.evidence.cpuComparison.summary}</p>
           )}
           <div className="mm-timeline">
-            <div className="mm-metric-label">Events</div>
+            <div className="mm-metric-label">{`Events`}</div>
             {events.length === 0 ? (
-              <p className="page-desc">No fault, recovery, or cleanup events have been saved.</p>
+              <p className="page-desc" style={{ margin: "4px 0 0" }}>No fault, recovery, or cleanup events have been saved.</p>
             ) : (
               events.map((event, index) => (
-                <p key={`${event.label}-${index}`} className="page-desc">
+                <p key={`${event.label}-${index}`} className="page-desc" style={{ margin: "6px 0 0" }}>
                   <strong>{event.label}.</strong> {event.detail}
                 </p>
               ))
             )}
           </div>
           {(current.evidence?.assertions || []).map((item) => (
-            <p key={item.id} className="page-desc">
+            <p key={item.id} className="page-desc" style={{ margin: "6px 0 0" }}>
               <span style={{ color: verdictColor(item.result) }}>{item.result}</span>
               {": "}{item.name}. Observed {String(item.observed)}.
             </p>
           ))}
           {(current.evidence?.limitations || []).map((item) => (
-            <p key={item} className="page-desc">{item}</p>
+            <p key={item} className="page-desc" style={{ margin: "6px 0 0" }}>{item}</p>
           ))}
         </>
       )}

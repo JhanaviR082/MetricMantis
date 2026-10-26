@@ -88,22 +88,22 @@ export function ConfigureExperimentPanel({
       <h2 className="slide-title" style={{ fontSize: 28, margin: "6px 0 8px" }}>
         Run a <span className="grad-text">measured</span> fault
       </h2>
-      <p className="page-desc">
+      <p className="page-desc" style={{ margin: "0 0 8px" }}>
         Choose one verified sandbox service, then a fault. The API checks ownership and container labels before it changes anything.
         Results below are measured. A missing number stays unavailable.
       </p>
-      <p className="page-desc">Selected target health: {health}.</p>
-      <p className="page-desc">
+      <p className="page-desc" style={{ margin: "0 0 8px" }}>Selected target health: {health}.</p>
+      <p className="page-desc" style={{ margin: "0 0 8px" }}>
         {sandbox
           ? `Sandbox ${sandbox.projectName} · status ${sandbox.status}.`
           : "No sandbox is selected."}
       </p>
-      {gatePhase === "loading" && <p className="page-desc">Loading verified sandbox containers.</p>}
-      {gatePhase === "empty" && <p className="page-desc">No sandbox is selected.</p>}
-      {gatePhase === "unavailable" && <p className="page-desc">Verified sandbox targets are unavailable.</p>}
-      {gatePhase === "error" && <p className="page-desc">Sandbox runtime could not be verified.</p>}
-      <p className="page-desc">{supportReason}</p>
-      <p className="page-desc">{chaosStatusText(caps, API_BASE_URL)}</p>
+      {gatePhase === "loading" && <p className="page-desc" style={{ margin: "0 0 8px" }}>Loading verified sandbox containers.</p>}
+      {gatePhase === "empty" && <p className="page-desc" style={{ margin: "0 0 8px" }}>No sandbox is selected.</p>}
+      {gatePhase === "unavailable" && <p className="page-desc" style={{ margin: "0 0 8px" }}>Verified sandbox targets are unavailable.</p>}
+      {gatePhase === "error" && <p className="page-desc" style={{ margin: "0 0 8px" }}>Sandbox runtime could not be verified.</p>}
+      <p className="page-desc" style={{ margin: "0 0 8px" }}>{supportReason}</p>
+      <p className="page-desc" style={{ margin: "0 0 16px" }}>{chaosStatusText(caps, API_BASE_URL)}</p>
       <div className="mm-exp-grid">
         <label className="auth-field">
           <span>Target</span>
@@ -171,7 +171,7 @@ export function ConfigureExperimentPanel({
           <input className="mm-exp-input" value={hypothesis} disabled={running} maxLength={300} onChange={(event) => onHypothesis(event.target.value)} />
         </label>
       </div>
-      <p className="page-desc">
+      <p className="page-desc" style={{ margin: "12px 0 0" }}>
         Probe send rate is how fast this panel asks the API to send probes. It is not service capacity.
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>

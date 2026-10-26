@@ -42,12 +42,16 @@ export function ExperimentWorkspace({
   runtimeServices,
   runtimeError,
   runtimeKnown,
+  onRunStarted,
+  mode = "configure",
 }: {
   edges: { from: string; to: string }[];
   sandbox: SandboxRecord | null;
   runtimeServices: ServiceRuntime[] | null;
   runtimeError: string | null;
   runtimeKnown: boolean;
+  onRunStarted?: () => void;
+  mode?: "configure" | "observe" | "both";
 }) {
   const verified = verifiedSandboxTargets(runtimeServices);
   const [target, setTarget] = useState("");
@@ -146,6 +150,7 @@ export function ExperimentWorkspace({
         edges,
       });
       setRecord(created);
+      onRunStarted?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Experiment failed.");
     } finally {
@@ -166,53 +171,72 @@ export function ExperimentWorkspace({
   }
 
   return (
-    <div className="mm-exp-layout">
-      <ConfigureExperimentPanel
-        services={verified.map((service) => ({ id: service.service, name: service.service }))}
-        sandbox={sandbox}
-        gatePhase={gate.phase}
-        target={selected}
-        fault={fault}
-        hypothesis={hypothesis}
-        memoryMib={memoryMib}
-        latencyMs={latencyMs}
-        lossPercent={lossPercent}
-        health={runtimeServices?.find((service) => service.service === selected)?.health || "unavailable"}
-        values={values}
-        supportReason={supportReason}
-        executable={executable}
-        running={running}
-        canCancel={Boolean(record && (record.status === "RUNNING" || record.status === "PENDING"))}
-        caps={caps}
-        error={error}
-        onTarget={setTarget}
-        onFault={setFault}
-        onHypothesis={setHypothesis}
-        onMemoryMib={setMemoryMib}
-        onLatencyMs={setLatencyMs}
-        onLossPercent={setLossPercent}
-        onValue={(name: FieldName, value: number) => setValues((current) => ({ ...current, [name]: value }))}
-        onRun={() => void onRun()}
-        onCancel={() => void onCancel()}
-      />
-      <ObservabilityDashboard record={record} loading={loading} starting={starting} />
+    <div className={mode === "both" ? "mm-exp-layout" : "mm-exp-single"}>
+      {(mode === "configure" || mode === "both") && (
+        <ConfigureExperimentPanel
+          services={verified.map((service) => ({ id: service.service, name: service.service }))}
+          sandbox={sandbox}
+          gatePhase={gate.phase}
+          target={selected}
+          fault={fault}
+          hypothesis={hypothesis}
+          memoryMib={memoryMib}
+          latencyMs={latencyMs}
+          lossPercent={lossPercent}
+          health={runtimeServices?.find((service) => service.service === selected)?.health || "unavailable"}
+          values={values}
+          supportReason={supportReason}
+          executable={executable}
+          running={running}
+          canCancel={Boolean(record && (record.status === "RUNNING" || record.status === "PENDING"))}
+          caps={caps}
+          error={error}
+          onTarget={setTarget}
+          onFault={setFault}
+          onHypothesis={setHypothesis}
+          onMemoryMib={setMemoryMib}
+          onLatencyMs={setLatencyMs}
+          onLossPercent={setLossPercent}
+          onValue={(name: FieldName, value: number) => setValues((current) => ({ ...current, [name]: value }))}
+          onRun={() => void onRun()}
+          onCancel={() => void onCancel()}
+        />
+      )}
+      {(mode === "observe" || mode === "both") && (
+        <ObservabilityDashboard record={record} loading={loading} starting={starting} />
+      )}
       <style>{`
         .mm-exp-layout {
           display: grid;
           grid-template-columns: minmax(280px, 0.92fr) minmax(300px, 1.08fr);
-          gap: 16px;
-          margin-top: 22px;
+          gap: 24px;
+          margin-top: 24px;
           align-items: start;
         }
+        .mm-exp-single {
+          margin-top: 24px;
+        }
+        /* Reset the global page-desc negative margin inside cards */
+        .mm-exp-card .page-desc {
+          margin-top: 0;
+          margin-bottom: 8px;
+          max-width: 100%;
+        }
         .mm-exp-card {
-          padding: 18px;
+          padding: 22px 24px;
           border-radius: 14px;
           min-width: 0;
+          overflow: hidden;
         }
-        .mm-exp-grid, .mm-metric-grid {
+        .mm-exp-grid {
           display: grid;
-          gap: 10px;
-          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+          gap: 12px;
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .mm-metric-grid {
+          display: grid;
+          gap: 6px 12px;
+          grid-template-columns: repeat(4, 1fr);
         }
         .mm-exp-select, .mm-exp-input {
           width: 100%;
@@ -223,47 +247,90 @@ export function ExperimentWorkspace({
           padding: 10px 12px;
           font-family: var(--sans);
         }
-        .mm-metric, .mm-phase, .mm-chart, .mm-timeline {
-          margin-top: 12px;
+        .mm-metric {
+          margin-top: 0;
+          min-width: 0;
+        }
+        .mm-phase {
+          margin-top: 16px;
+          padding-top: 14px;
+          border-top: 1px solid var(--border);
+        }
+        .mm-chart {
+          margin-top: 16px;
+          padding-top: 14px;
+          border-top: 1px solid var(--border);
+        }
+        .mm-timeline {
+          margin-top: 16px;
+          padding-top: 14px;
+          border-top: 1px solid var(--border);
         }
         .mm-metric-label {
+          display: block;
           color: var(--pewter);
           font-family: var(--mono);
-          font-size: 11px;
-          letter-spacing: 0.04em;
+          font-size: 10px;
+          letter-spacing: 0.06em;
           text-transform: uppercase;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin-bottom: 2px;
         }
         .mm-metric strong {
           display: block;
           color: var(--chalk);
-          font-size: 18px;
-          margin-top: 4px;
+          font-size: 16px;
+          font-weight: 700;
+          line-height: 1.3;
+          word-break: break-all;
         }
         .mm-bars {
           display: flex;
-          gap: 12px;
-          align-items: end;
-          min-height: 120px;
+          gap: 10px;
+          align-items: flex-end;
+          min-height: 100px;
+          margin-top: 10px;
         }
         .mm-bar-col {
           flex: 1;
+          min-width: 0;
           text-align: center;
           color: var(--silver);
-          font-size: 12px;
+          font-size: 11px;
+          overflow: hidden;
+        }
+        .mm-bar-col > span {
+          display: block;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          margin-top: 3px;
+          line-height: 1.4;
+        }
+        .mm-bar-col > span.mm-metric-label {
+          margin-top: 1px;
+          font-size: 9px;
         }
         .mm-bar-track {
-          height: 88px;
+          height: 80px;
           display: flex;
-          align-items: end;
+          align-items: flex-end;
           border-bottom: 1px solid var(--border);
         }
         .mm-bar-fill {
           width: 100%;
-          border-radius: 6px 6px 0 0;
-          min-height: 0;
+          border-radius: 4px 4px 0 0;
+          min-height: 2px;
         }
-        @media (max-width: 860px) {
+        .mm-chart .page-desc {
+          margin: 3px 0 8px;
+          font-size: 11px;
+        }
+        @media (max-width: 900px) {
           .mm-exp-layout { grid-template-columns: 1fr; }
+          .mm-metric-grid { grid-template-columns: repeat(2, 1fr); }
         }
       `}</style>
     </div>

@@ -54,12 +54,8 @@ export function GraphPage() {
           Dependency <span className="grad-text">Graph</span>
         </h1>
 
-        <p className="page-desc">
-          Card outline, status dot, and the Simulation line follow the simulated failure and the services that depend on it. Docker and Health stay on the card and are not changed by the simulation. Edges are labeled Simulation.
-        </p>
-
         {sandboxObserved && (
-          <p className="page-desc">
+          <p className="page-desc" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {sandbox?.projectName ? `Sandbox ${sandbox.projectName}. ` : ""}
             {sandboxRuntimeError || "Runtime status comes from container inspection."}
             {sandboxServices.length > 0

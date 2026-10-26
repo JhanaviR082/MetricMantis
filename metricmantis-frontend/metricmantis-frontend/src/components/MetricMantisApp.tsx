@@ -6,6 +6,7 @@ import { AuthMessage } from "@/components/auth/AuthMessage";
 import { AuthScreen } from "@/components/auth/AuthScreen";
 import { Background } from "@/components/Background";
 import { ChaosPage } from "@/components/pages/ChaosPage";
+import { DashboardPage } from "@/components/pages/DashboardPage";
 import { GraphPage } from "@/components/pages/GraphPage";
 import { ReportPage } from "@/components/pages/ReportPage";
 import { GuidePage } from "@/components/pages/GuidePage";
@@ -122,6 +123,8 @@ function AppPages() {
       return <GraphPage />;
     case "chaos":
       return <ChaosPage />;
+    case "dashboard":
+      return <DashboardPage />;
     case "report":
       return <ReportPage />;
     case "guide":

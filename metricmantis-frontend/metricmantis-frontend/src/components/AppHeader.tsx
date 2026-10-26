@@ -9,6 +9,7 @@ const LABELS: Record<WorkflowPage, string> = {
   upload: "Upload",
   graph: "Graph",
   chaos: "Chaos",
+  dashboard: "Dashboard",
   report: "Report",
 };
 
